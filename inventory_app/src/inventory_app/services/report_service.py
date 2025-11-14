@@ -2,10 +2,9 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
-from inventory_app.models.product import Product
+from inventory_app.models.product import Product, Supplier
 from inventory_app.models.stock import StockLevel
 from inventory_app.models.order import Order, OrderItem
-from inventory_app.models.supplier import Supplier
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE
 import pandas as pd
 from pathlib import Path

@@ -24,7 +24,7 @@ def seed_data():
     # Create tables
     Base.metadata.create_all(bind=engine)
     
-    db = next(get_db_session())
+    db = get_db_session()
     try:
         # Create admin user
         logger.info("Creating admin user...")

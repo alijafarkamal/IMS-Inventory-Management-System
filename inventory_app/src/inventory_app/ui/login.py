@@ -23,11 +23,9 @@ class LoginWindow:
         
         # Create login window
         self.window = ttk.Toplevel(root)
-        self.window.title("Login - Inventory Management System")
-        self.window.geometry("400x300")
+        self.window.title("Login")
+        self.window.geometry("400x250")
         self.window.resizable(False, False)
-        
-        # Center window
         self.window.transient(root)
         self.window.grab_set()
         
@@ -94,7 +92,7 @@ class LoginWindow:
             self.error_label.config(text="Please enter username and password")
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             user = authenticate_user(db, username, password)
             if user:

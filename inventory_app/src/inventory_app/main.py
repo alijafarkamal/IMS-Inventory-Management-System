@@ -22,23 +22,13 @@ class InventoryApp:
         self.root = ttk.Window(themename="cosmo")
         self.root.title("Inventory Management System")
         self.root.geometry("1200x800")
-        
-        # Apply theme
         apply_theme(self.root)
         
-        # Current user
         self.current_user: User | None = None
-        
-        # Current screen
         self.current_screen = None
         
-        # Start scheduler
         start_scheduler()
-        
-        # Show login
         self.show_login()
-        
-        # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def show_login(self):

@@ -149,7 +149,7 @@ class ReportsWindow:
     
     def view_stock_availability(self):
         """View stock availability report."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             df = stock_availability_report(db)
             self.display_dataframe(df, "Stock Availability")
@@ -165,7 +165,7 @@ class ReportsWindow:
         if start_date is None and end_date is None:
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             df = sales_vs_stock_report(db, start_date, end_date)
             self.display_dataframe(df, "Sales vs Stock")
@@ -181,7 +181,7 @@ class ReportsWindow:
         if start_date is None and end_date is None:
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             df = slow_fast_movers_report(db, start_date, end_date)
             self.display_dataframe(df, "Slow/Fast Movers")
@@ -197,7 +197,7 @@ class ReportsWindow:
         if start_date is None and end_date is None:
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             df = supplier_performance_report(db, start_date, end_date)
             self.display_dataframe(df, "Supplier Performance")
@@ -221,7 +221,7 @@ class ReportsWindow:
         if not filename:
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             export_reports_to_excel(db, Path(filename), start_date, end_date)
             messagebox.showinfo("Success", f"Reports exported successfully to {filename}")

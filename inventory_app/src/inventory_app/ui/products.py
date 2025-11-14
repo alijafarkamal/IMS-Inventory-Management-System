@@ -107,7 +107,7 @@ class ProductsWindow:
     
     def load_categories(self):
         """Load categories into combobox."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             categories = get_all_categories(db)
             self.category_combo["values"] = ["All"] + [cat.name for cat in categories]
@@ -116,7 +116,7 @@ class ProductsWindow:
     
     def refresh_products(self):
         """Refresh products list."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             # Clear tree
             for item in self.tree.get_children():
@@ -187,7 +187,7 @@ class ProductsWindow:
             messagebox.showwarning("No Selection", "Please select a product to edit")
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             product = get_product(db, product_id)
             if product:
@@ -214,7 +214,7 @@ class ProductsWindow:
         if not messagebox.askyesno("Confirm", "Are you sure you want to deactivate this product?"):
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             delete_product(db, product_id, user=self.user)
             messagebox.showinfo("Success", "Product deactivated successfully")
@@ -295,7 +295,7 @@ class ProductDialog:
     
     def load_data(self):
         """Load categories and suppliers."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             categories = get_all_categories(db)
             self.category_combo["values"] = [cat.name for cat in categories]
@@ -329,7 +329,7 @@ class ProductDialog:
             messagebox.showerror("Error", "Invalid price")
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             # Get category ID
             categories = get_all_categories(db)
@@ -434,7 +434,7 @@ class ProductDetailWindow:
     
     def load_product_info(self, parent):
         """Load product information."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             product = get_product(db, self.product_id)
             if product:
@@ -451,7 +451,7 @@ class ProductDetailWindow:
     
     def refresh_data(self):
         """Refresh stock and batch data."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             # Clear trees
             for item in self.stock_tree.get_children():
@@ -562,7 +562,7 @@ class BatchDialog:
     
     def load_warehouses(self):
         """Load warehouses."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             warehouses = get_all_warehouses(db)
             self.warehouse_combo["values"] = [w.name for w in warehouses]
@@ -594,7 +594,7 @@ class BatchDialog:
                 messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD")
                 return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             # Get warehouse ID
             warehouses = get_all_warehouses(db)

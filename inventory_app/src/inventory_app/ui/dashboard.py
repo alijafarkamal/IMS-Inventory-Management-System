@@ -133,7 +133,7 @@ class DashboardWindow:
     
     def refresh_data(self):
         """Refresh dashboard data."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             # Update low stock items
             for item in self.low_stock_tree.get_children():

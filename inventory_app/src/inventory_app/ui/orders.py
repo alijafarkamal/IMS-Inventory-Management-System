@@ -6,7 +6,8 @@ from decimal import Decimal
 from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
-from inventory_app.services.product_service import search_products, get_all_warehouses
+from inventory_app.services.product_service import search_products
+from inventory_app.services.inventory_service import get_all_warehouses
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
@@ -80,7 +81,7 @@ class OrdersWindow:
     
     def refresh_orders(self):
         """Refresh orders list."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             for item in self.tree.get_children():
                 self.tree.delete(item)
@@ -223,7 +224,7 @@ class OrderDialog:
     
     def load_warehouses(self):
         """Load warehouses."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             warehouses = get_all_warehouses(db)
             self.warehouse_combo["values"] = [w.name for w in warehouses]
@@ -232,7 +233,7 @@ class OrderDialog:
     
     def load_products(self):
         """Load products for search."""
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             products = search_products(db, active_only=True)
             self.product_names = {p.name: p for p in products}
@@ -246,7 +247,7 @@ class OrderDialog:
         if not query:
             return
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             products = search_products(db, query=query, active_only=True)
             self.product_names = {p.name: p for p in products}
@@ -279,7 +280,7 @@ class OrderDialog:
         product = self.product_names[product_name]
         
         # Get warehouse ID
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             warehouses = get_all_warehouses(db)
             warehouse_id = None
@@ -349,7 +350,7 @@ class OrderDialog:
         
         notes = self.notes_entry.get().strip()
         
-        db = next(get_db_session())
+        db = get_db_session()
         try:
             create_order(
                 db,
