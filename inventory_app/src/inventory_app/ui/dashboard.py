@@ -47,6 +47,14 @@ class DashboardWindow:
         )
         user_label.pack(side=RIGHT)
         
+        # Refresh button
+        ttk.Button(
+            header_frame,
+            text="Refresh",
+            command=self.refresh_data,
+            bootstyle=SECONDARY
+        ).pack(side=RIGHT, padx=10)
+        
         # Quick stats frame
         stats_frame = ttk.LabelFrame(self.frame, text="Quick Statistics", padding=10)
         stats_frame.pack(fill=X, pady=10)
@@ -103,30 +111,7 @@ class DashboardWindow:
         self.recent_tree.pack(side=LEFT, fill=BOTH, expand=TRUE)
         recent_scrollbar.pack(side=RIGHT, fill=Y)
         
-        # Quick actions
-        actions_frame = ttk.Frame(self.frame)
-        actions_frame.pack(fill=X, pady=10)
-        
-        ttk.Button(
-            actions_frame,
-            text="View Products",
-            command=lambda: self.on_navigate("products"),
-            bootstyle=PRIMARY
-        ).pack(side=LEFT, padx=5)
-        
-        ttk.Button(
-            actions_frame,
-            text="Create Order",
-            command=lambda: self.on_navigate("orders"),
-            bootstyle=SUCCESS
-        ).pack(side=LEFT, padx=5)
-        
-        ttk.Button(
-            actions_frame,
-            text="View Reports",
-            command=lambda: self.on_navigate("reports"),
-            bootstyle=INFO
-        ).pack(side=LEFT, padx=5)
+        # Quick actions removed in favor of tabbed navigation
         
         # Refresh data
         self.refresh_data()

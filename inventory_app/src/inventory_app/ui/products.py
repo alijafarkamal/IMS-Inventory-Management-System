@@ -8,7 +8,12 @@ from inventory_app.services.product_service import (
     create_product, update_product, delete_product, search_products,
     get_all_categories, get_all_suppliers, get_product
 )
-from inventory_app.services.inventory_service import get_stock_levels, get_all_warehouses, create_batch
+from inventory_app.services.inventory_service import (
+    get_stock_levels,
+    get_all_warehouses,
+    create_batch,
+    get_stock,
+)
 from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
 from datetime import datetime

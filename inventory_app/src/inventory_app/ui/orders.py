@@ -7,7 +7,7 @@ from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
 from inventory_app.services.product_service import search_products
-from inventory_app.services.inventory_service import get_all_warehouses
+from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
@@ -141,12 +141,19 @@ class OrderDialog:
         self.product_combo = ttk.Combobox(add_frame, textvariable=self.product_var, width=30)
         self.product_combo.grid(row=0, column=1, padx=5)
         self.product_combo.bind("<KeyRelease>", self.search_products)
+        self.product_combo.bind("<<ComboboxSelected>>", self.update_stock_display)
         
         # Warehouse
         ttk.Label(add_frame, text="Warehouse:").grid(row=0, column=2, sticky=W, padx=5)
         self.warehouse_var = ttk.StringVar()
         self.warehouse_combo = ttk.Combobox(add_frame, textvariable=self.warehouse_var, width=20, state="readonly")
         self.warehouse_combo.grid(row=0, column=3, padx=5)
+        self.warehouse_combo.bind("<<ComboboxSelected>>", self.update_stock_display)
+        
+        # Stock availability display (for sales orders)
+        if order_type == ORDER_TYPE_SALE:
+            self.stock_label = ttk.Label(add_frame, text="", foreground="blue", font=("Helvetica", 9))
+            self.stock_label.grid(row=0, column=4, padx=5)
         
         # Quantity
         ttk.Label(add_frame, text="Quantity:").grid(row=1, column=0, sticky=W, padx=5, pady=5)
@@ -255,6 +262,39 @@ class OrderDialog:
         finally:
             db.close()
     
+    def update_stock_display(self, event=None):
+        """Update stock availability display for sales orders."""
+        if self.order_type != ORDER_TYPE_SALE:
+            return
+        
+        product_name = self.product_var.get().strip()
+        warehouse_name = self.warehouse_var.get()
+        
+        if not product_name or not warehouse_name or product_name not in self.product_names:
+            self.stock_label.config(text="")
+            return
+        
+        product = self.product_names[product_name]
+        
+        db = get_db_session()
+        try:
+            warehouses = get_all_warehouses(db)
+            warehouse_id = None
+            for w in warehouses:
+                if w.name == warehouse_name:
+                    warehouse_id = w.id
+                    break
+            
+            if warehouse_id:
+                stock = get_warehouse_stock(db, product.id, warehouse_id)
+                if stock > 0:
+                    self.stock_label.config(text=f"Available: {stock} units", foreground="green")
+                else:
+                    self.stock_label.config(text=f"Available: {stock} units (OUT OF STOCK)", foreground="red")
+        finally:
+            db.close()
+
+    
     def add_item(self):
         """Add item to order."""
         product_name = self.product_var.get().strip()
@@ -292,6 +332,18 @@ class OrderDialog:
             if not warehouse_id:
                 messagebox.showerror("Error", "Invalid warehouse")
                 return
+            
+            # Check stock availability for sales orders
+            if self.order_type == ORDER_TYPE_SALE:
+                available_stock = get_warehouse_stock(db, product.id, warehouse_id)
+                if available_stock < quantity:
+                    messagebox.showerror(
+                        "Insufficient Stock", 
+                        f"Product '{product.name}' has only {available_stock} units available in {warehouse_name}.\n"
+                        f"You requested {quantity} units.\n\n"
+                        f"Please select a different warehouse or reduce the quantity."
+                    )
+                    return
             
             # Add to items list
             item = {

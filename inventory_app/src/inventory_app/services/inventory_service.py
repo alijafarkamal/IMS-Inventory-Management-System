@@ -1,7 +1,7 @@
 """Inventory management service with stock adjustments and audit logging."""
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from inventory_app.models.stock import StockLevel, Warehouse, Batch
 from inventory_app.models.product import Product
 from inventory_app.models.audit import InventoryAudit
@@ -68,7 +68,12 @@ def adjust_stock(
     if batch_id:
         batch = db.query(Batch).filter(Batch.id == batch_id).first()
         if batch:
-            batch.quantity = new_quantity
+            # Adjust batch quantity by the change amount (quantity)
+            # Do not set batch.quantity to the overall stock level.
+            new_batch_qty = batch.quantity + quantity
+            if new_batch_qty < 0:
+                raise ValueError(f"Insufficient batch stock for batch {batch.batch_number}. Available: {batch.quantity}, Requested: {abs(quantity)}")
+            batch.quantity = new_batch_qty
     
     db.flush()  # Flush to get IDs
     
@@ -101,7 +106,7 @@ def get_stock(db: Session, product_id: int) -> int:
     total = db.query(StockLevel).filter(
         StockLevel.product_id == product_id
     ).with_entities(
-        db.func.sum(StockLevel.quantity).label("total")
+        func.sum(StockLevel.quantity).label("total")
     ).scalar()
     return total or 0
 
@@ -146,8 +151,10 @@ def create_batch(
         received_date=datetime.utcnow()
     )
     db.add(batch)
-    
-    # Adjust stock
+    # Flush so batch.id is available for adjust_stock to update the specific batch
+    db.flush()
+
+    # Adjust stock and associate to the created batch
     adjust_stock(
         db=db,
         product_id=product_id,

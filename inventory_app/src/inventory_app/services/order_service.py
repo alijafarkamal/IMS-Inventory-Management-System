@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from inventory_app.models.order import Order, OrderItem
 from inventory_app.models.product import Product
+from inventory_app.models.stock import Batch
 from inventory_app.models.user import User
 from inventory_app.services.inventory_service import adjust_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
@@ -118,22 +119,50 @@ def create_order(
             
             # Determine quantity change direction
             if order_type == ORDER_TYPE_SALE:
-                # Sale reduces stock
-                qty_change = -quantity
+                # Sale reduces stock. Prefer consuming from batches (FEFO) if available.
+                remaining = quantity
                 reason = f"Sale order {order_number}"
+
+                # Get batches for this product/warehouse with available quantity, ordered by expiry (earliest first)
+                batches = db.query(Batch).filter(
+                    Batch.product_id == product_id,
+                    Batch.warehouse_id == warehouse_id,
+                    Batch.quantity > 0
+                ).order_by(Batch.expiry_date).all()
+
+                for batch in batches:
+                    if remaining <= 0:
+                        break
+                    take = min(batch.quantity, remaining)
+                    if take <= 0:
+                        continue
+                    # Adjust stock and decrease specific batch
+                    adjust_stock(
+                        db=db,
+                        product_id=product_id,
+                        warehouse_id=warehouse_id,
+                        quantity=-take,
+                        user=user,
+                        reason=f"{reason} - batch {batch.batch_number}",
+                        batch_id=batch.id
+                    )
+                    remaining -= take
+
+                # If still remaining (no batches or insufficient batch qty), adjust general stock
+                if remaining > 0:
+                    adjust_stock(
+                        db=db,
+                        product_id=product_id,
+                        warehouse_id=warehouse_id,
+                        quantity=-remaining,
+                        user=user,
+                        reason=reason
+                    )
+
             elif order_type == ORDER_TYPE_PURCHASE:
                 # Purchase increases stock
                 qty_change = quantity
                 reason = f"Purchase order {order_number}"
-            elif order_type == ORDER_TYPE_RETURN:
-                # Return increases stock
-                qty_change = quantity
-                reason = f"Return order {order_number}"
-            else:
-                qty_change = 0
-                reason = ""
-            
-            if qty_change != 0:
                 adjust_stock(
                     db=db,
                     product_id=product_id,
@@ -142,6 +171,22 @@ def create_order(
                     user=user,
                     reason=reason
                 )
+
+            elif order_type == ORDER_TYPE_RETURN:
+                # Return increases stock
+                qty_change = quantity
+                reason = f"Return order {order_number}"
+                adjust_stock(
+                    db=db,
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    quantity=qty_change,
+                    user=user,
+                    reason=reason
+                )
+            else:
+                # Unknown type: skip
+                logger.warning(f"Unknown order type for stock adjustment: {order_type}")
         
         # Mark order as completed
         order.status = "Completed"
