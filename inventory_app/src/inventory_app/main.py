@@ -13,6 +13,7 @@ from inventory_app.utils.logging import logger
 from inventory_app.models.user import User
 from inventory_app.db.session import get_db_session
 from inventory_app.services.auth_service import create_user
+from inventory_app.config import ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF
 
 
 class InventoryApp:
@@ -186,12 +187,30 @@ class InventoryApp:
 
     def init_tabs(self):
         """Initialize tabs for dashboard, products, orders, reports."""
-        tab_defs = [
-            ("dashboard", "Dashboard", DashboardWindow),
-            ("products", "Products", ProductsWindow),
-            ("orders", "Orders", OrdersWindow),
-            ("reports", "Reports", ReportsWindow)
-        ]
+        # Determine visible tabs based on role
+        role = getattr(self.current_user, "role", None)
+        tab_defs = []
+        if role == ROLE_ADMIN:
+            tab_defs = [
+                ("dashboard", "Dashboard", DashboardWindow),
+                ("products", "Products", ProductsWindow),
+                ("orders", "Orders", OrdersWindow),
+                ("reports", "Reports", ReportsWindow)
+            ]
+        elif role == ROLE_MANAGER:
+            tab_defs = [
+                ("dashboard", "Dashboard", DashboardWindow),
+                ("products", "Products", ProductsWindow),
+                ("orders", "Orders", OrdersWindow),
+                ("reports", "Reports", ReportsWindow)
+            ]
+        else:
+            # Staff and unknown roles get a limited set of tabs
+            tab_defs = [
+                ("dashboard", "Dashboard", DashboardWindow),
+                ("products", "Products", ProductsWindow),
+                ("orders", "Orders", OrdersWindow)
+            ]
         for key, label, cls in tab_defs:
             frame = ttk.Frame(self.notebook)
             self.notebook.add(frame, text=label)

@@ -17,6 +17,7 @@ from inventory_app.services.inventory_service import (
 from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
 from datetime import datetime
+from inventory_app.config import ROLE_MANAGER, ROLE_ADMIN
 
 
 class ProductsWindow:
@@ -85,12 +86,14 @@ class ProductsWindow:
             bootstyle=INFO
         ).pack(side=LEFT, padx=5)
         
-        ttk.Button(
-            btn_frame,
-            text="Deactivate",
-            command=self.deactivate_product,
-            bootstyle=DANGER
-        ).pack(side=LEFT, padx=5)
+        # Deactivate (soft-delete) is restricted to Manager+Admin
+        if getattr(self.user, "role", None) in [ROLE_MANAGER, ROLE_ADMIN]:
+            ttk.Button(
+                btn_frame,
+                text="Deactivate",
+                command=self.deactivate_product,
+                bootstyle=DANGER
+            ).pack(side=LEFT, padx=5)
         
         # Products table
         columns = ("ID", "Name", "SKU", "Category", "Price", "Supplier", "Stock", "Status")

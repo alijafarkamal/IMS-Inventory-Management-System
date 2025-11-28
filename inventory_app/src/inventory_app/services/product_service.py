@@ -93,8 +93,10 @@ def update_product(
 
 def delete_product(db: Session, product_id: int, user: User = None) -> bool:
     """Delete a product (soft delete by setting is_active=False)."""
+    # Only Manager or Admin may deactivate/delete products
     if user:
-        require_permission(user, ROLE_STAFF)
+        from inventory_app.config import ROLE_MANAGER
+        require_permission(user, ROLE_MANAGER)
     
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
