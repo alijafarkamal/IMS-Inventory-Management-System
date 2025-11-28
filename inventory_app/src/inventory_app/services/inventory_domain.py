@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
+import json
 
 from sqlalchemy.orm import Session
 
@@ -67,8 +68,8 @@ class AuditFactory:
             action="STOCK_ADJUST",
             entity_type="StockLevel",
             entity_id=stock_id,
-            old_values=f'{"quantity": {old_quantity}}'.replace("'", '"'),
-            new_values=f'{"quantity": {new_quantity}}'.replace("'", '"'),
+            old_values=json.dumps({"quantity": old_quantity}),
+            new_values=json.dumps({"quantity": new_quantity}),
             reason=reason,
             timestamp=datetime.utcnow(),
         )
