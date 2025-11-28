@@ -76,8 +76,8 @@ def adjust_stock(
             batch.quantity = new_batch_qty
     
     db.flush()  # Flush to get IDs
-    
-    # Create audit log
+
+    # Create audit log (do not commit here; caller manages transaction)
     audit = InventoryAudit(
         user_id=user.id,
         action="STOCK_ADJUST",
@@ -89,9 +89,15 @@ def adjust_stock(
         timestamp=datetime.utcnow()
     )
     db.add(audit)
-    
-    db.commit()
-    db.refresh(stock)
+
+    # Do not commit inside this helper to allow callers to manage transactions.
+    # Flush so callers can see IDs if needed; refresh the stock object from session state.
+    db.flush()
+    try:
+        db.refresh(stock)
+    except Exception:
+        # If refresh fails for any reason, ignore — caller will handle consistency.
+        pass
     
     logger.info(
         f"Stock adjusted: Product {product_id}, Warehouse {warehouse_id}, "
