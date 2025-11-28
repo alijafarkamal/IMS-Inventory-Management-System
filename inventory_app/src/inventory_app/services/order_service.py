@@ -1,18 +1,25 @@
-"""Order service for sales, purchases, and returns."""
+"""Order service for sales, purchases, and returns.
+
+Thin wrapper delegating orchestration to `OrderProcessor` for SRP/DI.
+Preserves existing behavior and commit/rollback semantics.
+"""
 from datetime import datetime
+from decimal import Decimal
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from inventory_app.models.order import Order, OrderItem
-from inventory_app.models.product import Product
-from inventory_app.models.stock import Batch
+
+from inventory_app.models.order import Order
 from inventory_app.models.user import User
 from inventory_app.services.inventory_service import adjust_stock
-from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
-from inventory_app.utils.logging import logger
+from inventory_app.services.order_processor import OrderProcessor
+from inventory_app.config import (
+    ORDER_TYPE_SALE,
+    ORDER_TYPE_PURCHASE,
+    ORDER_TYPE_RETURN,
+    ROLE_STAFF,
+)
 from inventory_app.services.auth_service import require_permission
-from inventory_app.config import ROLE_STAFF
-from decimal import Decimal
-from inventory_app.services.activity_service import log_activity
 
 
 def generate_order_number(order_type: str, db: Session) -> str:
@@ -44,27 +51,16 @@ def create_order(
     db: Session,
     order_type: str,
     user: User,
-    items: list[dict],
-    notes: str = None,
-    customer_id: int | None = None,
+    items: List[dict],
+    notes: Optional[str] = None,
+    customer_id: Optional[int] = None,
 ) -> Order:
-    """
-    Create an order (sale, purchase, or return).
-    
-    Args:
-        db: Database session
-        order_type: ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, or ORDER_TYPE_RETURN
-        user: User creating the order
-        items: List of dicts with keys: product_id, quantity, unit_price, warehouse_id
-        notes: Optional notes
-        
-    Returns:
-        Created Order
-    """
+    """Validate and delegate to `OrderProcessor` for orchestration."""
     require_permission(user, ROLE_STAFF)
-    
+
     if order_type not in [ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN]:
         raise ValueError(f"Invalid order type: {order_type}")
+<<<<<<< HEAD
     
     # Generate order number
     order_number = generate_order_number(order_type, db)
@@ -211,15 +207,37 @@ def create_order(
         db.rollback()
         logger.error(f"Failed to create order: {e}")
         raise
+=======
+
+    processor = OrderProcessor(adjust_stock_fn=adjust_stock)
+    # Optional activity logger: try to import if available
+    activity_logger = None
+    try:
+        # Optional dependency: only used if present in the codebase
+        from inventory_app.services.activity_service import log_activity as _log_activity  # type: ignore
+        activity_logger = _log_activity
+    except Exception:
+        activity_logger = None
+    return processor.process(
+        db=db,
+        generate_order_number_fn=generate_order_number,
+        order_type=order_type,
+        user=user,
+        items=items,
+        notes=notes,
+        customer_id=customer_id,
+        activity_logger=activity_logger,
+    )
+>>>>>>> 97fef683a5de477951478023c7ab2c1b1760a180
 
 
 def get_orders(
     db: Session,
-    order_type: str = None,
-    user_id: int = None,
-    start_date: datetime = None,
-    end_date: datetime = None
-) -> list[Order]:
+    order_type: Optional[str] = None,
+    user_id: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> List[Order]:
     """Get orders with optional filters."""
     q = db.query(Order)
     
@@ -235,7 +253,7 @@ def get_orders(
     return q.order_by(Order.order_date.desc()).all()
 
 
-def get_order(db: Session, order_id: int) -> Order:
+def get_order(db: Session, order_id: int) -> Optional[Order]:
     """Get an order by ID."""
     return db.query(Order).filter(Order.id == order_id).first()
 

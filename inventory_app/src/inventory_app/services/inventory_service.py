@@ -9,6 +9,11 @@ from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
 from inventory_app.config import ROLE_STAFF
 from inventory_app.services.auth_service import require_permission
+from inventory_app.services.inventory_domain import (
+    StockRepository,
+    AuditFactory,
+    InventoryAdjuster,
+)
 import json
 
 
@@ -19,91 +24,25 @@ def adjust_stock(
     quantity: int,
     user: User,
     reason: str,
-    batch_id: int = None
+    batch_id: int = None,
 ) -> StockLevel:
-    """
-    Adjust stock level for a product in a warehouse.
-    Creates audit log entry.
-    
-    Args:
-        db: Database session
-        product_id: Product ID
-        warehouse_id: Warehouse ID
-        quantity: Quantity change (positive for increase, negative for decrease)
-        user: User making the change
-        reason: Reason for the adjustment
-        batch_id: Optional batch ID
-        
-    Returns:
-        Updated StockLevel
-    """
+    """Adjust stock and create audit via domain classes (no commit here)."""
     require_permission(user, ROLE_STAFF)
-    
-    # Get or create stock level
-    stock = db.query(StockLevel).filter(
-        and_(
-            StockLevel.product_id == product_id,
-            StockLevel.warehouse_id == warehouse_id
-        )
-    ).first()
-    
-    old_quantity = stock.quantity if stock else 0
-    
-    if not stock:
-        stock = StockLevel(
-            product_id=product_id,
-            warehouse_id=warehouse_id,
-            quantity=0
-        )
-        db.add(stock)
-    
-    # Update quantity
-    new_quantity = stock.quantity + quantity
-    if new_quantity < 0:
-        raise ValueError(f"Insufficient stock. Available: {stock.quantity}, Requested: {abs(quantity)}")
-    
-    stock.quantity = new_quantity
-    
-    # Update batch if provided
-    if batch_id:
-        batch = db.query(Batch).filter(Batch.id == batch_id).first()
-        if batch:
-            # Adjust batch quantity by the change amount (quantity)
-            # Do not set batch.quantity to the overall stock level.
-            new_batch_qty = batch.quantity + quantity
-            if new_batch_qty < 0:
-                raise ValueError(f"Insufficient batch stock for batch {batch.batch_number}. Available: {batch.quantity}, Requested: {abs(quantity)}")
-            batch.quantity = new_batch_qty
-    
-    db.flush()  # Flush to get IDs
 
-    # Create audit log (do not commit here; caller manages transaction)
-    audit = InventoryAudit(
-        user_id=user.id,
-        action="STOCK_ADJUST",
-        entity_type="StockLevel",
-        entity_id=stock.id,
-        old_values=json.dumps({"quantity": old_quantity}),
-        new_values=json.dumps({"quantity": new_quantity}),
+    repo = StockRepository(db)
+    adjuster = InventoryAdjuster(repo=repo, audit_factory=AuditFactory())
+    stock = adjuster.adjust_stock(
+        product_id=product_id,
+        warehouse_id=warehouse_id,
+        quantity=quantity,
+        user=user,
         reason=reason,
-        timestamp=datetime.utcnow()
+        batch_id=batch_id,
     )
-    db.add(audit)
 
-    # Do not commit inside this helper to allow callers to manage transactions.
-    # Flush so callers can see IDs if needed; refresh the stock object from session state.
-    db.flush()
-    try:
-        db.refresh(stock)
-    except Exception:
-        # If refresh fails for any reason, ignore — caller will handle consistency.
-        pass
-    
     logger.info(
-        f"Stock adjusted: Product {product_id}, Warehouse {warehouse_id}, "
-        f"{old_quantity} -> {new_quantity} (change: {quantity:+d}) by {user.username}"
+        f"Stock adjusted: Product {product_id}, Warehouse {warehouse_id}, change: {quantity:+d} by {user.username}"
     )
-    
     return stock
 
 
