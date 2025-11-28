@@ -1,23 +1,28 @@
-"""Authentication and authorization service."""
-from passlib.context import CryptContext
+"""Authentication and authorization service.
+
+Thin wrappers delegating to domain classes for SRP/DI.
+Public API preserved.
+"""
 from sqlalchemy.orm import Session
 from inventory_app.models.user import User
 from inventory_app.services.activity_service import log_activity
 from inventory_app.config import ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF
 from inventory_app.utils.logging import logger
+from inventory_app.services.auth_domain import PasswordHasher, PermissionChecker, Authenticator
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Lightweight singletons for reuse
+_hasher = PasswordHasher()
+_perm = PermissionChecker()
 
 
 def hash_password(password: str) -> str:
-    """Hash a password."""
-    return pwd_context.hash(password)
+    """Hash a password (delegates to PasswordHasher)."""
+    return _hasher.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against its hash (delegates to PasswordHasher)."""
+    return _hasher.verify(plain_password, hashed_password)
 
 
 def authenticate_user(db: Session, username: str, password: str) -> User | None:
@@ -27,25 +32,13 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise
     """
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        logger.warning(f"Authentication failed: user '{username}' not found")
-        return None
-    
-    if not user.is_active:
-        logger.warning(f"Authentication failed: user '{username}' is inactive")
-        return None
-    
-    if not verify_password(password, user.password_hash):
-        logger.warning(f"Authentication failed: invalid password for user '{username}'")
-        return None
-    
-    logger.info(f"User '{username}' authenticated successfully")
-    try:
-        log_activity(db, user, action="LOGIN", entity_type="User", entity_id=user.id, details="User logged in")
-    except Exception:
-        # Avoid blocking login on activity log failure
-        pass
+    # Use Authenticator for SRP; preserve original logging side-effect
+    user = Authenticator(db, _hasher).authenticate(username, password)
+    if user:
+        try:
+            log_activity(db, user, action="LOGIN", entity_type="User", entity_id=user.id, details="User logged in")
+        except Exception:
+            pass
     return user
 
 
@@ -82,19 +75,11 @@ def create_user(
 
 
 def check_permission(user: User, required_role: str) -> bool:
-    """
-    Check if user has required permission.
-    
-    Role hierarchy: Admin > Manager > Staff
-    """
-    role_hierarchy = {ROLE_ADMIN: 3, ROLE_MANAGER: 2, ROLE_STAFF: 1}
-    user_level = role_hierarchy.get(user.role, 0)
-    required_level = role_hierarchy.get(required_role, 999)
-    return user_level >= required_level
+    """Check if user has required permission (delegates to PermissionChecker)."""
+    return _perm.has_permission(user, required_role)
 
 
 def require_permission(user: User, required_role: str):
-    """Raise PermissionError if user doesn't have required permission."""
-    if not check_permission(user, required_role):
-        raise PermissionError(f"User '{user.username}' does not have required role: {required_role}")
+    """Raise PermissionError if user doesn't have required permission (delegates)."""
+    _perm.require(user, required_role)
 
