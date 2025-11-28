@@ -30,3 +30,18 @@ def get_db_session():
     """Get a database session (non-generator version for use in services)."""
     return SessionLocal()
 
+
+def init_db():
+    """Initialize the database by creating all tables if they don't exist.
+
+    This ensures core tables (e.g., `users`) exist for first-run scenarios
+    without requiring Alembic migrations to be executed manually.
+    """
+    # Import models to ensure tables are registered on Base.metadata
+    try:
+        from inventory_app.models import user, product, order, customer, stock, audit  # noqa: F401
+    except Exception:
+        # Even if some optional models fail to import, proceed to create known ones
+        pass
+    Base.metadata.create_all(bind=engine)
+

@@ -409,7 +409,7 @@ class ProductDetailWindow:
         self.load_product_info(main_frame)
         
         # Stock levels
-        stock_frame = ttk.LabelFrame(main_frame, text="Stock by Warehouse", padding=10)
+        stock_frame = ttk.Labelframe(main_frame, text="Stock by Warehouse", padding=10)
         stock_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         stock_columns = ("Warehouse", "Quantity", "Reserved")
@@ -420,7 +420,7 @@ class ProductDetailWindow:
         self.stock_tree.pack(fill=BOTH, expand=TRUE)
         
         # Batches
-        batch_frame = ttk.LabelFrame(main_frame, text="Batches/Lots", padding=10)
+        batch_frame = ttk.Labelframe(main_frame, text="Batches/Lots", padding=10)
         batch_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         batch_columns = ("Batch #", "Warehouse", "Quantity", "Expiry Date", "Received Date")
@@ -446,7 +446,7 @@ class ProductDetailWindow:
         try:
             product = get_product(db, self.product_id)
             if product:
-                info_frame = ttk.LabelFrame(parent, text="Product Information", padding=10)
+                info_frame = ttk.Labelframe(parent, text="Product Information", padding=10)
                 info_frame.pack(fill=X, pady=10)
                 
                 ttk.Label(info_frame, text=f"Name: {product.name}", font=("Helvetica", 12, "bold")).pack(anchor=W)
