@@ -42,7 +42,9 @@ class ProductRepository:
             q = q.filter(or_(Product.name.ilike(f"%{query}%"), Product.sku.ilike(f"%{query}%")))
         if category_id:
             q = q.filter(Product.category_id == category_id)
-        return q.order_by(Product.name).all()
+        # Ensure deterministic ordering by ID ascending and avoid accidental duplicates
+        q = q.order_by(Product.id.asc())
+        return q.all()
 
 
 class CategoryRepository:
