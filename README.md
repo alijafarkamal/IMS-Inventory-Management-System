@@ -1,6 +1,6 @@
 # Inventory Management System
 
-A production-ready desktop inventory management application built with Python, Tkinter, and SQLite. Features role-based access control, product management, stock tracking, batch/lot management, sales/purchase orders, comprehensive reporting, and audit logging.
+A production-ready desktop inventory management application built with Python, Tkinter, and SQLite. Features include role-based access control, product management, stock tracking, batch/lot management, sales/purchase orders, comprehensive reporting, and audit logging.
 
 ## Features
 
