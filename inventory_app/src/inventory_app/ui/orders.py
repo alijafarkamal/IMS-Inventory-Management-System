@@ -140,7 +140,19 @@ class OrderDialog:
         
         self.window = ttk.Toplevel(parent)
         self.window.title(f"Create {order_type} Order")
-        self.window.geometry("900x600")
+        # Dynamically size to ~60% of screen width and 65% of screen height (minimum 1000x650)
+        try:
+            screen_w = self.window.winfo_screenwidth()
+            screen_h = self.window.winfo_screenheight()
+            target_w = max(1000, int(screen_w * 0.6))
+            target_h = max(650, int(screen_h * 0.65))
+            # Center the window
+            x = int((screen_w - target_w) / 2)
+            y = int((screen_h - target_h) / 2 * 0.9)  # slightly higher than true center
+            self.window.geometry(f"{target_w}x{target_h}+{x}+{y}")
+        except Exception:
+            # Fallback to larger static size
+            self.window.geometry("1000x650")
         self.window.transient(parent)
         self.window.grab_set()
         
