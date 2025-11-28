@@ -42,6 +42,36 @@ def seed_data():
             logger.warning(f"Admin user may already exist: {e}")
             admin = db.query(User).filter(User.username == "admin").first()
         
+        # Create manager user
+        logger.info("Creating manager user...")
+        try:
+            manager = create_user(
+                db,
+                username="manager",
+                password="manager123",
+                email="manager@inventory.com",
+                full_name="Manager User",
+                role="Manager"
+            )
+            logger.info(f"Created manager user: {manager.username}")
+        except ValueError as e:
+            logger.warning(f"Manager user may already exist: {e}")
+
+        # Create staff user
+        logger.info("Creating staff user...")
+        try:
+            staff = create_user(
+                db,
+                username="staff",
+                password="staff123",
+                email="staff@inventory.com",
+                full_name="Staff User",
+                role="Staff"
+            )
+            logger.info(f"Created staff user: {staff.username}")
+        except ValueError as e:
+            logger.warning(f"Staff user may already exist: {e}")
+        
         # Create categories
         logger.info("Creating categories...")
         categories = {}

@@ -17,9 +17,11 @@ class Order(Base, TimestampMixin):
     status = Column(String(20), default="Pending", nullable=False)  # Pending, Completed, Cancelled
     notes = Column(Text)
     order_date = Column(DateTime, nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)  # For sales orders
 
     # Relationships
     user = relationship("User")
+    customer = relationship("Customer", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 

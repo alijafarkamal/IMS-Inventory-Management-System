@@ -2,6 +2,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from inventory_app.models.product import Product, Category, Supplier
+from inventory_app.models.customer import Customer
 from inventory_app.models.user import User
 from inventory_app.utils.sku import generate_sku
 from inventory_app.utils.logging import logger
@@ -152,6 +153,11 @@ def get_all_categories(db: Session) -> list[Category]:
 def get_all_suppliers(db: Session) -> list[Supplier]:
     """Get all suppliers."""
     return db.query(Supplier).order_by(Supplier.name).all()
+
+
+def get_all_customers(db: Session) -> list[Customer]:
+    """Get all customers."""
+    return db.query(Customer).filter(Customer.is_active == True).order_by(Customer.name).all()
 
 
 def create_category(db: Session, name: str, description: str = None) -> Category:

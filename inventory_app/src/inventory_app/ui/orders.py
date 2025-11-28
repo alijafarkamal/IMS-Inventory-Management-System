@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
-from inventory_app.services.product_service import search_products, get_all_suppliers
+from inventory_app.services.product_service import search_products, get_all_suppliers, get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.models.user import User

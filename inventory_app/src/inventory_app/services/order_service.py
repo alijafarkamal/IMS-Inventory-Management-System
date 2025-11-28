@@ -91,110 +91,111 @@ def create_order(
         )
         order_items.append(order_item)
     
-    # Create order and perform stock adjustments inside a single transaction
+    
+    # Create order and perform stock adjustments
     try:
-        with db.begin():
-            # Create order
-            order = Order(
-                order_number=order_number,
-                order_type=order_type,
-                user_id=user.id,
-                total_amount=total_amount,
-                status="Pending",
-                notes=notes,
-                order_date=datetime.utcnow()
-            )
-            db.add(order)
-            db.flush()  # Get order ID
+        # Create order
+        order = Order(
+            order_number=order_number,
+            order_type=order_type,
+            user_id=user.id,
+            total_amount=total_amount,
+            status="Pending",
+            notes=notes,
+            order_date=datetime.utcnow()
+        )
+        db.add(order)
+        db.flush()  # Get order ID
 
-            # Add items
-            for item in order_items:
-                item.order_id = order.id
-                db.add(item)
+        # Add items
+        for item in order_items:
+            item.order_id = order.id
+            db.add(item)
 
-            db.flush()
+        db.flush()
 
-            # Adjust stock based on order type
-            for item_data, order_item in zip(items, order_items):
-                quantity = item_data["quantity"]
-                warehouse_id = item_data["warehouse_id"]
-                product_id = item_data["product_id"]
+        # Adjust stock based on order type
+        for item_data, order_item in zip(items, order_items):
+            quantity = item_data["quantity"]
+            warehouse_id = item_data["warehouse_id"]
+            product_id = item_data["product_id"]
 
-                # Determine quantity change direction
-                if order_type == ORDER_TYPE_SALE:
-                    # Sale reduces stock. Prefer consuming from batches (FEFO) if available.
-                    remaining = quantity
-                    reason = f"Sale order {order_number}"
+            # Determine quantity change direction
+            if order_type == ORDER_TYPE_SALE:
+                # Sale reduces stock. Prefer consuming from batches (FEFO) if available.
+                remaining = quantity
+                reason = f"Sale order {order_number}"
 
-                    # Get batches for this product/warehouse with available quantity, ordered by expiry (earliest first)
-                    batches = db.query(Batch).filter(
-                        Batch.product_id == product_id,
-                        Batch.warehouse_id == warehouse_id,
-                        Batch.quantity > 0
-                    ).order_by(Batch.expiry_date).all()
+                # Get batches for this product/warehouse with available quantity, ordered by expiry (earliest first)
+                batches = db.query(Batch).filter(
+                    Batch.product_id == product_id,
+                    Batch.warehouse_id == warehouse_id,
+                    Batch.quantity > 0
+                ).order_by(Batch.expiry_date).all()
 
-                    for batch in batches:
-                        if remaining <= 0:
-                            break
-                        take = min(batch.quantity, remaining)
-                        if take <= 0:
-                            continue
-                        # Adjust stock and decrease specific batch
-                        adjust_stock(
-                            db=db,
-                            product_id=product_id,
-                            warehouse_id=warehouse_id,
-                            quantity=-take,
-                            user=user,
-                            reason=f"{reason} - batch {batch.batch_number}",
-                            batch_id=batch.id
-                        )
-                        remaining -= take
-
-                    # If still remaining (no batches or insufficient batch qty), adjust general stock
-                    if remaining > 0:
-                        adjust_stock(
-                            db=db,
-                            product_id=product_id,
-                            warehouse_id=warehouse_id,
-                            quantity=-remaining,
-                            user=user,
-                            reason=reason
-                        )
-
-                elif order_type == ORDER_TYPE_PURCHASE:
-                    # Purchase increases stock
-                    qty_change = quantity
-                    reason = f"Purchase order {order_number}"
+                for batch in batches:
+                    if remaining <= 0:
+                        break
+                    take = min(batch.quantity, remaining)
+                    if take <= 0:
+                        continue
+                    # Adjust stock and decrease specific batch
                     adjust_stock(
                         db=db,
                         product_id=product_id,
                         warehouse_id=warehouse_id,
-                        quantity=qty_change,
+                        quantity=-take,
                         user=user,
-                        reason=reason
+                        reason=f"{reason} - batch {batch.batch_number}",
+                        batch_id=batch.id
                     )
+                    remaining -= take
 
-                elif order_type == ORDER_TYPE_RETURN:
-                    # Return increases stock
-                    qty_change = quantity
-                    reason = f"Return order {order_number}"
+                # If still remaining (no batches or insufficient batch qty), adjust general stock
+                if remaining > 0:
                     adjust_stock(
                         db=db,
                         product_id=product_id,
                         warehouse_id=warehouse_id,
-                        quantity=qty_change,
+                        quantity=-remaining,
                         user=user,
                         reason=reason
                     )
-                else:
-                    # Unknown type: skip
-                    logger.warning(f"Unknown order type for stock adjustment: {order_type}")
 
-            # Mark order as completed
-            order.status = "Completed"
+            elif order_type == ORDER_TYPE_PURCHASE:
+                # Purchase increases stock
+                qty_change = quantity
+                reason = f"Purchase order {order_number}"
+                adjust_stock(
+                    db=db,
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    quantity=qty_change,
+                    user=user,
+                    reason=reason
+                )
 
-        # transaction committed successfully
+            elif order_type == ORDER_TYPE_RETURN:
+                # Return increases stock
+                qty_change = quantity
+                reason = f"Return order {order_number}"
+                adjust_stock(
+                    db=db,
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    quantity=qty_change,
+                    user=user,
+                    reason=reason
+                )
+            else:
+                # Unknown type: skip
+                logger.warning(f"Unknown order type for stock adjustment: {order_type}")
+
+        # Mark order as completed
+        order.status = "Completed"
+        
+        # Commit the transaction
+        db.commit()
         db.refresh(order)
         logger.info(f"Created {order_type} order: {order_number} by {user.username}")
         try:
@@ -204,7 +205,8 @@ def create_order(
         return order
 
     except Exception as e:
-        # db.begin() will rollback automatically on exception
+        # Rollback on error
+        db.rollback()
         logger.error(f"Failed to create order: {e}")
         raise
 
