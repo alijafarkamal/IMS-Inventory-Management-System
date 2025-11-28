@@ -13,6 +13,7 @@ class Order(Base, TimestampMixin):
     order_number = Column(String(50), unique=True, nullable=False, index=True)
     order_type = Column(String(20), nullable=False)  # Sale, Purchase, Return
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     total_amount = Column(Numeric(10, 2), nullable=False, default=0)
     status = Column(String(20), default="Pending", nullable=False)  # Pending, Completed, Cancelled
     notes = Column(Text)
@@ -20,6 +21,7 @@ class Order(Base, TimestampMixin):
 
     # Relationships
     user = relationship("User")
+    customer = relationship("Customer", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 

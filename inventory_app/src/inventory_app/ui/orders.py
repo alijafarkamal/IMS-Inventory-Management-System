@@ -7,6 +7,7 @@ from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
 from inventory_app.services.product_service import search_products, get_all_suppliers
+from inventory_app.services.customer_service import get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.models.user import User
@@ -64,7 +65,7 @@ class OrdersWindow:
         ).pack(side=LEFT, padx=5)
         
         # Orders table
-        columns = ("Date", "Order #", "Type", "User", "Total", "Status")
+        columns = ("Date", "Order #", "Type", "Party", "User", "Total", "Status")
         self.tree = ttk.Treeview(self.frame, columns=columns, show="headings", height=15)
         
         for col in columns:
@@ -88,18 +89,35 @@ class OrdersWindow:
             
             orders = get_orders(db)
             for order in orders:
-                self.tree.insert(
-                    "",
-                    END,
-                    values=(
-                        order.order_date.strftime("%Y-%m-%d %H:%M"),
-                        order.order_number,
-                        order.order_type,
-                        order.user.full_name if order.user else "N/A",
-                        f"${order.total_amount:.2f}",
-                        order.status
+                    # Determine party name (customer for sales/returns, supplier for purchases if available in notes)
+                    party_name = "N/A"
+                    try:
+                        if hasattr(order, 'customer') and order.customer:
+                            party_name = order.customer.name
+                        elif order.order_type == ORDER_TYPE_PURCHASE and order.notes:
+                            # notes can contain "[Supplier: Name]" appended by UI; extract it
+                            note = order.notes
+                            start = note.find("[Supplier:")
+                            if start != -1:
+                                end = note.find("]", start)
+                                if end != -1:
+                                    party_name = note[start+10:end].strip()
+                    except Exception:
+                        party_name = "N/A"
+
+                    self.tree.insert(
+                        "",
+                        END,
+                        values=(
+                            order.order_date.strftime("%Y-%m-%d %H:%M"),
+                            order.order_number,
+                            order.order_type,
+                            party_name,
+                            order.user.full_name if order.user else "N/A",
+                            f"${order.total_amount:.2f}",
+                            order.status
+                        )
                     )
-                )
         finally:
             db.close()
     
@@ -143,27 +161,15 @@ class OrderDialog:
             self.supplier_combo = ttk.Combobox(party_frame, textvariable=self.supplier_var, width=30, state="readonly")
             self.supplier_combo.grid(row=0, column=1, padx=5)
             self.load_suppliers()
-        elif order_type == ORDER_TYPE_SALE:
-            ttk.Label(party_frame, text="Customer (name):").grid(row=0, column=0, sticky=W, padx=5)
-            self.customer_entry = ttk.Entry(party_frame, width=32)
-            self.customer_entry.grid(row=0, column=1, padx=5)
-
-        # Party selection (Supplier for Purchase, Customer for Sale)
-        party_frame = ttk.LabelFrame(main_frame, text="Party", padding=10)
-        party_frame.pack(fill=X, pady=10)
-
-        if order_type == ORDER_TYPE_PURCHASE:
-            ttk.Label(party_frame, text="Supplier:").grid(row=0, column=0, sticky=W, padx=5)
-            self.supplier_var = ttk.StringVar()
-            self.supplier_combo = ttk.Combobox(party_frame, textvariable=self.supplier_var, width=30, state="readonly")
-            self.supplier_combo.grid(row=0, column=1, padx=5)
-            self.load_suppliers()
-        elif order_type == ORDER_TYPE_SALE:
+        elif order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN):
+            # Use a combobox populated with existing customers (predefined options)
             ttk.Label(party_frame, text="Customer:").grid(row=0, column=0, sticky=W, padx=5)
             self.customer_var = ttk.StringVar()
-            self.customer_combo = ttk.Combobox(party_frame, textvariable=self.customer_var, width=30, state="readonly")
+            self.customer_combo = ttk.Combobox(party_frame, textvariable=self.customer_var, width=32, state="readonly")
             self.customer_combo.grid(row=0, column=1, padx=5)
             self.load_customers()
+
+        # (Removed duplicate party block - first party_frame above handles supplier/customer)
         
         # Add item frame
         add_frame = ttk.LabelFrame(main_frame, text="Add Item", padding=10)
@@ -273,23 +279,23 @@ class OrderDialog:
         finally:
             db.close()
 
-    def load_suppliers(self):
-        db = get_db_session()
-        try:
-            suppliers = get_all_suppliers(db)
-            self.supplier_map = {s.name: s.id for s in suppliers}
-            if hasattr(self, 'supplier_combo'):
-                self.supplier_combo["values"] = list(self.supplier_map.keys())
-        finally:
-            db.close()
-
     def load_customers(self):
         db = get_db_session()
         try:
             customers = get_all_customers(db)
             self.customer_map = {c.name: c.id for c in customers}
             if hasattr(self, 'customer_combo'):
-                self.customer_combo["values"] = list(self.customer_map.keys())
+                if customers:
+                    self.customer_combo["state"] = "readonly"
+                    self.customer_combo["values"] = list(self.customer_map.keys())
+                else:
+                    # No customers in DB: show informative placeholder and disable selection
+                    self.customer_combo["values"] = ["-- No customers defined --"]
+                    try:
+                        self.customer_combo.current(0)
+                    except Exception:
+                        pass
+                    self.customer_combo["state"] = "disabled"
         finally:
             db.close()
     
@@ -473,10 +479,17 @@ class OrderDialog:
                 return
             notes = (notes + " ").strip()
             notes += f"[Supplier: {supplier_name}]"
-        elif self.order_type == ORDER_TYPE_SALE and self.customer_entry is not None:
-            customer_name = self.customer_entry.get().strip()
+        elif self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN):
+            # Require selecting an existing customer from the predefined list
+            customer_name = self.customer_var.get().strip() if hasattr(self, "customer_var") else ""
             if not customer_name:
-                messagebox.showerror("Error", "Please enter a customer name")
+                messagebox.showerror("Error", "Please select a customer")
+                return
+            customer_id = None
+            if hasattr(self, 'customer_map'):
+                customer_id = self.customer_map.get(customer_name)
+            if not customer_id:
+                messagebox.showerror("Error", "Selected customer is not valid. Please add customers first from the Customers screen.")
                 return
             notes = (notes + " ").strip()
             notes += f"[Customer: {customer_name}]"
@@ -488,9 +501,16 @@ class OrderDialog:
                 self.order_type,
                 self.user,
                 self.items,
-                notes=notes if notes else None
+                notes=notes if notes else None,
+                customer_id=customer_id if self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN) else None
             )
             messagebox.showinfo("Success", f"{self.order_type} order created successfully")
+            # Notify other parts of the UI (dashboard) that orders have been updated
+            try:
+                root = self.window.winfo_toplevel()
+                root.event_generate("<<OrdersUpdated>>", when="tail")
+            except Exception:
+                pass
             self.window.destroy()
             if self.on_save:
                 self.on_save()

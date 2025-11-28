@@ -46,6 +46,7 @@ def create_order(
     user: User,
     items: list[dict],
     notes: str = None,
+    customer_id: int | None = None,
 ) -> Order:
     """
     Create an order (sale, purchase, or return).
@@ -93,12 +94,19 @@ def create_order(
     
     # Create order and perform stock adjustments inside a single transaction
     try:
-        with db.begin():
+        # Use a nested transaction (savepoint) if a transaction is already active
+        if getattr(db, "in_transaction", None) and db.in_transaction():
+            tx_cm = db.begin_nested()
+            logger.info("Using nested transaction for order creation")
+        else:
+            tx_cm = db.begin()
+        with tx_cm:
             # Create order
             order = Order(
                 order_number=order_number,
                 order_type=order_type,
                 user_id=user.id,
+                customer_id=customer_id,
                 total_amount=total_amount,
                 status="Pending",
                 notes=notes,
