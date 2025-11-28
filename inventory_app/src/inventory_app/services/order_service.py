@@ -46,6 +46,7 @@ def create_order(
     user: User,
     items: list[dict],
     notes: str = None,
+    customer_id: int | None = None,
 ) -> Order:
     """
     Create an order (sale, purchase, or return).
@@ -94,18 +95,19 @@ def create_order(
     
     # Create order and perform stock adjustments
     try:
-        # Create order
-        order = Order(
-            order_number=order_number,
-            order_type=order_type,
-            user_id=user.id,
-            total_amount=total_amount,
-            status="Pending",
-            notes=notes,
-            order_date=datetime.utcnow()
-        )
-        db.add(order)
-        db.flush()  # Get order ID
+        with db.begin():
+            # Create order
+            order = Order(
+                order_number=order_number,
+                order_type=order_type,
+                user_id=user.id,
+                total_amount=total_amount,
+                status="Pending",
+                notes=notes,
+                order_date=datetime.utcnow()
+            )
+            db.add(order)
+            db.flush()  # Get order ID
 
         # Add items
         for item in order_items:

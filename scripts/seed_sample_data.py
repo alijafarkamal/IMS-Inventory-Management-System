@@ -7,10 +7,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "inventory_app" / "src"))
 
 from inventory_app.db.session import Base, engine, get_db_session
 from inventory_app.models.user import User
+from inventory_app.models.customer import Customer
 from inventory_app.models.product import Category, Supplier, Product
 from inventory_app.models.stock import Warehouse, Batch
 from inventory_app.services.auth_service import create_user, hash_password
 from inventory_app.services.product_service import create_category, create_supplier, create_product
+from inventory_app.services.customer_service import create_customer
 from inventory_app.services.inventory_service import create_warehouse, create_batch, adjust_stock
 from inventory_app.utils.logging import logger
 from datetime import datetime, timedelta
@@ -101,6 +103,26 @@ def seed_data():
             except ValueError:
                 supplier = db.query(Supplier).filter(Supplier.name == name).first()
                 suppliers[name] = supplier
+
+        # Create customers
+        logger.info("Creating customers...")
+        customer_data = [
+            ("Acme Corp", "sales@acme.com", "555-2001", "1 Industrial Way"),
+            ("Globex LLC", "contact@globex.com", "555-2002", "42 Market Street"),
+            ("Initech", "support@initech.com", "555-2003", "77 Silicon Ave"),
+            ("Umbrella Co", "ops@umbrella.co", "555-2004", "13 Main Road"),
+        ]
+        for name, email, phone, address in customer_data:
+            try:
+                create_customer(db, name=name, email=email, phone=phone, address=address)
+                logger.info(f"Created customer: {name}")
+            except Exception as e:
+                # If exists, skip
+                existing = db.query(Customer).filter(Customer.name == name).first()
+                if existing:
+                    logger.warning(f"Customer {name} already exists; skipping")
+                else:
+                    logger.warning(f"Error creating customer {name}: {e}")
         
         # Create warehouses
         logger.info("Creating warehouses...")

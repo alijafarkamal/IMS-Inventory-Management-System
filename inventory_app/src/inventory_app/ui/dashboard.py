@@ -115,6 +115,12 @@ class DashboardWindow:
         
         # Refresh data
         self.refresh_data()
+        # Listen for global orders-updated events so dashboard refreshes
+        try:
+            root = self.frame.winfo_toplevel()
+            root.bind("<<OrdersUpdated>>", lambda e: self.refresh_data())
+        except Exception:
+            pass
     
     def refresh_data(self):
         """Refresh dashboard data."""
