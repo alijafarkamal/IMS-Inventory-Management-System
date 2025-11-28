@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent)
 from inventory_app.db.session import Base
 from inventory_app.config import DB_URL
 from inventory_app.models import user, product, stock, order, audit
+from inventory_app.models import customer  # ensure Customer model is loaded
 
 # this is the Alembic Config object
 config = context.config

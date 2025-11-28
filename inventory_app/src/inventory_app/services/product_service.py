@@ -8,6 +8,7 @@ from inventory_app.utils.logging import logger
 from inventory_app.config import ROLE_STAFF
 from inventory_app.services.auth_service import require_permission
 from decimal import Decimal
+from inventory_app.services.activity_service import log_activity
 
 
 def create_product(
@@ -39,6 +40,11 @@ def create_product(
     db.commit()
     db.refresh(product)
     logger.info(f"Created product: {name} (SKU: {sku})")
+    try:
+        if user:
+            log_activity(db, user, action="PRODUCT_CREATE", entity_type="Product", entity_id=product.id, details=f"SKU={sku}")
+    except Exception:
+        pass
     return product
 
 
@@ -77,6 +83,11 @@ def update_product(
     db.commit()
     db.refresh(product)
     logger.info(f"Updated product: {product.name} (ID: {product_id})")
+    try:
+        if user:
+            log_activity(db, user, action="PRODUCT_UPDATE", entity_type="Product", entity_id=product.id)
+    except Exception:
+        pass
     return product
 
 
@@ -92,6 +103,11 @@ def delete_product(db: Session, product_id: int, user: User = None) -> bool:
     product.is_active = False
     db.commit()
     logger.info(f"Deactivated product: {product.name} (ID: {product_id})")
+    try:
+        if user:
+            log_activity(db, user, action="PRODUCT_DEACTIVATE", entity_type="Product", entity_id=product.id)
+    except Exception:
+        pass
     return True
 
 

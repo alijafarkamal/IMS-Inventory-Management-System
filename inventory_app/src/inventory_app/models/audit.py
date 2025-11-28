@@ -21,3 +21,18 @@ class InventoryAudit(Base):
     # Relationships
     user = relationship("User", back_populates="audit_logs")
 
+
+class ActivityLog(Base):
+    """General user activity log (authentication, CRUD, reports, etc.)."""
+    __tablename__ = "activity_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String(100), nullable=False)
+    entity_type = Column(String(50))
+    entity_id = Column(Integer)
+    details = Column(Text)
+    timestamp = Column(DateTime, nullable=False, index=True)
+
+    user = relationship("User", back_populates="activity_logs")
+

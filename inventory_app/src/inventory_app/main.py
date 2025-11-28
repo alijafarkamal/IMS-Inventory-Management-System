@@ -2,7 +2,7 @@
 import sys
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
-from inventory_app.ui.styles import apply_theme
+from inventory_app.ui.styles import apply_theme, THEME
 from inventory_app.ui.login import LoginWindow
 from inventory_app.ui.dashboard import DashboardWindow
 from inventory_app.ui.products import ProductsWindow
@@ -21,7 +21,7 @@ class InventoryApp:
     def __init__(self):
         """Initialize the application."""
         # Create root window
-        self.root = ttk.Window(themename="cosmo")
+        self.root = ttk.Window(themename=THEME)
         self.root.title("Inventory Management System")
         self.root.geometry("1200x800")
         apply_theme(self.root)
@@ -31,42 +31,95 @@ class InventoryApp:
         
         start_scheduler()
 
-        # Setup Notebook (tabbed interface)
+        # Setup Notebook (tabbed interface) - create but populate after login
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=BOTH, expand=TRUE)
         self.screens = {}
 
-        # Auto-login: create or fetch admin then initialize tabs
+        # Ensure default admin exists, then show in-window login overlay
         try:
-            self.auto_login_admin()
-            self.init_tabs()
+            self.ensure_default_admin()
         except Exception as e:
-            logger.error(f"Auto-login failed: {e}")
-            self.show_login()  # fallback
+            logger.error(f"Failed ensuring default admin: {e}")
+        self.show_login_overlay()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def show_login(self):
-        """Show login window."""
+        """Legacy: Show separate login window (unused)."""
         LoginWindow(self.root, on_success_callback=self.on_login_success)
+
+    def show_login_overlay(self):
+        """Show a centered login box on the main window (no separate window)."""
+        # Full overlay frame to sit above notebook (which is empty initially)
+        self.login_overlay = ttk.Frame(self.root, style="Overlay.TFrame", padding=10)
+        self.login_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+        # Centered panel
+        panel = ttk.Frame(self.login_overlay, style="LoginCard.TFrame", padding=24)
+        panel.place(relx=0.5, rely=0.45, anchor="center")
+
+        ttk.Label(panel, text="Inventory Management System", style="LoginTitle.TLabel").pack(pady=(0, 16))
+
+        form = ttk.Frame(panel)
+        form.pack()
+
+        ttk.Label(form, text="Username:", width=12).grid(row=0, column=0, sticky=E, padx=6, pady=6)
+        self.login_username = ttk.Entry(form, width=28)
+        self.login_username.grid(row=0, column=1, padx=6, pady=6)
+        # Do not prefill username
+
+        ttk.Label(form, text="Password:", width=12).grid(row=1, column=0, sticky=E, padx=6, pady=6)
+        self.login_password = ttk.Entry(form, width=28, show="*")
+        self.login_password.grid(row=1, column=1, padx=6, pady=6)
+        # Do not prefill password
+
+        # Show/Hide password toggle
+        toggles = ttk.Frame(panel)
+        toggles.pack(fill=X)
+        self.show_pw_var = ttk.BooleanVar(value=False)
+        show_pw = ttk.Checkbutton(
+            toggles,
+            text="Show password",
+            variable=self.show_pw_var,
+            command=lambda: self.login_password.configure(show="" if self.show_pw_var.get() else "*")
+        )
+        show_pw.pack(anchor=W)
+
+        self.login_error = ttk.Label(panel, text="", foreground="red")
+        self.login_error.pack(pady=(8, 0))
+
+        btns = ttk.Frame(panel)
+        btns.pack(pady=14)
+        ttk.Button(btns, text="Sign In", bootstyle=PRIMARY, command=self.handle_login, width=12).pack(side=LEFT, padx=6)
+        ttk.Button(btns, text="Exit", bootstyle=DANGER, command=self.on_closing, width=10).pack(side=LEFT, padx=6)
+
+        # Enter-to-submit
+        self.login_password.bind("<Return>", lambda e: self.handle_login())
     
     def on_login_success(self, user: User):
-        """Handle successful login."""
+        """Handle successful login from overlay or legacy window."""
         self.current_user = user
         logger.info(f"User {user.username} logged in")
+        # Remove overlay if present
+        if hasattr(self, "login_overlay") and self.login_overlay is not None:
+            try:
+                self.login_overlay.destroy()
+            except Exception:
+                pass
+            self.login_overlay = None
         # Initialize tabs if not already created
         if not self.screens:
             self.init_tabs()
         else:
             self.show_dashboard()
 
-    def auto_login_admin(self):
-        """Create or fetch the default admin user and proceed to dashboard without showing login."""
+    def ensure_default_admin(self):
+        """Ensure a default admin exists (admin/admin123)."""
         db = None
         try:
             db = get_db_session()
             admin = db.query(User).filter(User.username == "admin").first()
             if not admin:
-                # Create default admin
                 create_user(
                     db,
                     username="admin",
@@ -75,13 +128,38 @@ class InventoryApp:
                     full_name="Administrator",
                     role="Admin"
                 )
-                admin = db.query(User).filter(User.username == "admin").first()
+                logger.info("Default admin user created")
+            else:
+                logger.info("Default admin user ensured")
+        finally:
+            if db:
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
-            if not admin:
-                raise RuntimeError("Failed to create or retrieve admin user")
-            # Set current user; tabs will be initialized after this call in __init__
-            self.current_user = admin
-            logger.info("Auto-login admin user established")
+    def handle_login(self):
+        """Authenticate from overlay and proceed."""
+        username = self.login_username.get().strip() if hasattr(self, "login_username") else ""
+        password = self.login_password.get() if hasattr(self, "login_password") else ""
+        if not username or not password:
+            if hasattr(self, "login_error"):
+                self.login_error.config(text="Please enter username and password")
+            return
+        db = None
+        try:
+            db = get_db_session()
+            from inventory_app.services.auth_service import authenticate_user
+            user = authenticate_user(db, username, password)
+            if user:
+                self.on_login_success(user)
+            else:
+                if hasattr(self, "login_error"):
+                    self.login_error.config(text="Invalid username or password")
+        except Exception as e:
+            logger.error(f"Login error: {e}")
+            if hasattr(self, "login_error"):
+                self.login_error.config(text=f"Error: {str(e)}")
         finally:
             if db:
                 try:

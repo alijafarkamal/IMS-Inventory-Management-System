@@ -12,6 +12,7 @@ from inventory_app.utils.logging import logger
 from inventory_app.services.auth_service import require_permission
 from inventory_app.config import ROLE_STAFF
 from decimal import Decimal
+from inventory_app.services.activity_service import log_activity
 
 
 def generate_order_number(order_type: str, db: Session) -> str:
@@ -44,7 +45,7 @@ def create_order(
     order_type: str,
     user: User,
     items: list[dict],
-    notes: str = None
+    notes: str = None,
 ) -> Order:
     """
     Create an order (sale, purchase, or return).
@@ -196,6 +197,10 @@ def create_order(
         # transaction committed successfully
         db.refresh(order)
         logger.info(f"Created {order_type} order: {order_number} by {user.username}")
+        try:
+            log_activity(db, user, action="ORDER_CREATE", entity_type="Order", entity_id=order.id, details=f"{order_type} {order_number}")
+        except Exception:
+            pass
         return order
 
     except Exception as e:

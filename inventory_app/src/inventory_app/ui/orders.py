@@ -6,7 +6,7 @@ from decimal import Decimal
 from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
-from inventory_app.services.product_service import search_products
+from inventory_app.services.product_service import search_products, get_all_suppliers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.models.user import User
@@ -130,6 +130,40 @@ class OrderDialog:
         # Main frame
         main_frame = ttk.Frame(self.window, padding=10)
         main_frame.pack(fill=BOTH, expand=TRUE)
+
+        # Party selection (Supplier for Purchase, Customer for Sale)
+        party_frame = ttk.LabelFrame(main_frame, text="Party", padding=10)
+        party_frame.pack(fill=X, pady=10)
+
+        self.supplier_var = None
+        self.customer_entry = None
+        if order_type == ORDER_TYPE_PURCHASE:
+            ttk.Label(party_frame, text="Supplier:").grid(row=0, column=0, sticky=W, padx=5)
+            self.supplier_var = ttk.StringVar()
+            self.supplier_combo = ttk.Combobox(party_frame, textvariable=self.supplier_var, width=30, state="readonly")
+            self.supplier_combo.grid(row=0, column=1, padx=5)
+            self.load_suppliers()
+        elif order_type == ORDER_TYPE_SALE:
+            ttk.Label(party_frame, text="Customer (name):").grid(row=0, column=0, sticky=W, padx=5)
+            self.customer_entry = ttk.Entry(party_frame, width=32)
+            self.customer_entry.grid(row=0, column=1, padx=5)
+
+        # Party selection (Supplier for Purchase, Customer for Sale)
+        party_frame = ttk.LabelFrame(main_frame, text="Party", padding=10)
+        party_frame.pack(fill=X, pady=10)
+
+        if order_type == ORDER_TYPE_PURCHASE:
+            ttk.Label(party_frame, text="Supplier:").grid(row=0, column=0, sticky=W, padx=5)
+            self.supplier_var = ttk.StringVar()
+            self.supplier_combo = ttk.Combobox(party_frame, textvariable=self.supplier_var, width=30, state="readonly")
+            self.supplier_combo.grid(row=0, column=1, padx=5)
+            self.load_suppliers()
+        elif order_type == ORDER_TYPE_SALE:
+            ttk.Label(party_frame, text="Customer:").grid(row=0, column=0, sticky=W, padx=5)
+            self.customer_var = ttk.StringVar()
+            self.customer_combo = ttk.Combobox(party_frame, textvariable=self.customer_var, width=30, state="readonly")
+            self.customer_combo.grid(row=0, column=1, padx=5)
+            self.load_customers()
         
         # Add item frame
         add_frame = ttk.LabelFrame(main_frame, text="Add Item", padding=10)
@@ -228,6 +262,36 @@ class OrderDialog:
         # Load warehouses
         self.load_warehouses()
         self.load_products()
+
+    def load_suppliers(self):
+        db = get_db_session()
+        try:
+            suppliers = get_all_suppliers(db)
+            self.supplier_map = {s.name: s.id for s in suppliers}
+            if hasattr(self, 'supplier_combo'):
+                self.supplier_combo["values"] = list(self.supplier_map.keys())
+        finally:
+            db.close()
+
+    def load_suppliers(self):
+        db = get_db_session()
+        try:
+            suppliers = get_all_suppliers(db)
+            self.supplier_map = {s.name: s.id for s in suppliers}
+            if hasattr(self, 'supplier_combo'):
+                self.supplier_combo["values"] = list(self.supplier_map.keys())
+        finally:
+            db.close()
+
+    def load_customers(self):
+        db = get_db_session()
+        try:
+            customers = get_all_customers(db)
+            self.customer_map = {c.name: c.id for c in customers}
+            if hasattr(self, 'customer_combo'):
+                self.customer_combo["values"] = list(self.customer_map.keys())
+        finally:
+            db.close()
     
     def load_warehouses(self):
         """Load warehouses."""
@@ -401,6 +465,21 @@ class OrderDialog:
             return
         
         notes = self.notes_entry.get().strip()
+        # Append party info into notes to satisfy UI requirement without schema change
+        if self.order_type == ORDER_TYPE_PURCHASE and self.supplier_var is not None:
+            supplier_name = self.supplier_var.get().strip()
+            if not supplier_name:
+                messagebox.showerror("Error", "Please select a supplier")
+                return
+            notes = (notes + " ").strip()
+            notes += f"[Supplier: {supplier_name}]"
+        elif self.order_type == ORDER_TYPE_SALE and self.customer_entry is not None:
+            customer_name = self.customer_entry.get().strip()
+            if not customer_name:
+                messagebox.showerror("Error", "Please enter a customer name")
+                return
+            notes = (notes + " ").strip()
+            notes += f"[Customer: {customer_name}]"
         
         db = get_db_session()
         try:

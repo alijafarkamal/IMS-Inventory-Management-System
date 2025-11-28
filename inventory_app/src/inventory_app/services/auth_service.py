@@ -2,6 +2,7 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from inventory_app.models.user import User
+from inventory_app.services.activity_service import log_activity
 from inventory_app.config import ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF
 from inventory_app.utils.logging import logger
 
@@ -40,6 +41,11 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
         return None
     
     logger.info(f"User '{username}' authenticated successfully")
+    try:
+        log_activity(db, user, action="LOGIN", entity_type="User", entity_id=user.id, details="User logged in")
+    except Exception:
+        # Avoid blocking login on activity log failure
+        pass
     return user
 
 

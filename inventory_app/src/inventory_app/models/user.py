@@ -19,6 +19,7 @@ class User(Base, TimestampMixin):
 
     # Relationships
     audit_logs = relationship("InventoryAudit", back_populates="user")
+    activity_logs = relationship("ActivityLog", back_populates="user")
 
 
 class Role(Base):
