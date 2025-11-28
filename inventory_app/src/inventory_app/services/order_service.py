@@ -20,7 +20,6 @@ from inventory_app.config import (
     ROLE_STAFF,
 )
 from inventory_app.services.auth_service import require_permission
-from inventory_app.services.activity_service import log_activity
 
 
 def generate_order_number(order_type: str, db: Session) -> str:
@@ -63,6 +62,14 @@ def create_order(
         raise ValueError(f"Invalid order type: {order_type}")
 
     processor = OrderProcessor(adjust_stock_fn=adjust_stock)
+    # Optional activity logger: try to import if available
+    activity_logger = None
+    try:
+        # Optional dependency: only used if present in the codebase
+        from inventory_app.services.activity_service import log_activity as _log_activity  # type: ignore
+        activity_logger = _log_activity
+    except Exception:
+        activity_logger = None
     return processor.process(
         db=db,
         generate_order_number_fn=generate_order_number,
@@ -71,7 +78,7 @@ def create_order(
         items=items,
         notes=notes,
         customer_id=customer_id,
-        activity_logger=log_activity,
+        activity_logger=activity_logger,
     )
 
 

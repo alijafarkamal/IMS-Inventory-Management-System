@@ -24,6 +24,7 @@ from inventory_app.utils.logging import logger
 
 
 GenerateOrderNumberFn = Callable[[str, Session], str]
+ActivityLoggerFn = Callable[[Session, User, str, str, int, str], None]
 
 
 class OrderProcessor:
@@ -40,7 +41,7 @@ class OrderProcessor:
         items: List[dict],
         notes: Optional[str] = None,
         customer_id: Optional[int] = None,
-        activity_logger: Optional[Callable[..., None]] = None,
+        activity_logger: Optional[ActivityLoggerFn] = None,
     ) -> Order:
         order_number = generate_order_number_fn(order_type, db)
 
@@ -72,6 +73,7 @@ class OrderProcessor:
             status="Pending",
             notes=notes,
             order_date=datetime.utcnow(),
+            **({"customer_id": customer_id} if customer_id is not None else {}),
         )
 
         try:
@@ -161,16 +163,17 @@ class OrderProcessor:
 
             if activity_logger is not None:
                 try:
+                    # Keyword args aid clarity; conforms to ActivityLoggerFn signature
                     activity_logger(
-                        db=db,
-                        user=user,
-                        action="ORDER_CREATE",
-                        entity_type="Order",
-                        entity_id=order.id,
-                        details=f"{order_type} {order_number}",
+                        db,
+                        user,
+                        "ORDER_CREATE",
+                        "Order",
+                        order.id,
+                        f"{order_type} {order_number}",
                     )
                 except Exception:
-                    # Do not fail the order creation if activity logging fails
+                    # Do not fail order creation if activity logging fails
                     pass
             return order
         except Exception:
