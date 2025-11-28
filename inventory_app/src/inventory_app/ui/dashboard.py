@@ -56,14 +56,14 @@ class DashboardWindow:
         ).pack(side=RIGHT, padx=10)
         
         # Quick stats frame
-        stats_frame = ttk.LabelFrame(self.frame, text="Quick Statistics", padding=10)
+        stats_frame = ttk.Labelframe(self.frame, text="Quick Statistics", padding=10)
         stats_frame.pack(fill=X, pady=10)
         
         self.stats_container = ttk.Frame(stats_frame)
         self.stats_container.pack(fill=X)
         
         # Low stock alerts
-        alerts_frame = ttk.LabelFrame(self.frame, text="Low Stock Alerts", padding=10)
+        alerts_frame = ttk.Labelframe(self.frame, text="Low Stock Alerts", padding=10)
         alerts_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         # Treeview for low stock items
@@ -90,7 +90,7 @@ class DashboardWindow:
         self.low_stock_tree.tag_configure("low", foreground="red")
         
         # Recent transactions
-        recent_frame = ttk.LabelFrame(self.frame, text="Recent Transactions", padding=10)
+        recent_frame = ttk.Labelframe(self.frame, text="Recent Transactions", padding=10)
         recent_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         recent_columns = ("Date", "Type", "Order #", "Amount", "Status")

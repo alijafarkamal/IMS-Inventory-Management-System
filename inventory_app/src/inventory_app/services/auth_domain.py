@@ -17,7 +17,8 @@ from inventory_app.utils.logging import logger
 
 class PasswordHasher:
     def __init__(self, schemes: list[str] | None = None, deprecated: str = "auto") -> None:
-        self._ctx = CryptContext(schemes=schemes or ["bcrypt"], deprecated=deprecated)
+        # Use a widely supported scheme to avoid backend issues with bcrypt
+        self._ctx = CryptContext(schemes=schemes or ["pbkdf2_sha256"], deprecated=deprecated)
 
     def hash(self, password: str) -> str:
         return self._ctx.hash(password)

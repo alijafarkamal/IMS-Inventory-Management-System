@@ -12,6 +12,7 @@ from inventory_app.services.scheduler_service import start_scheduler, stop_sched
 from inventory_app.utils.logging import logger
 from inventory_app.models.user import User
 from inventory_app.db.session import get_db_session
+from inventory_app.db.session import init_db
 from inventory_app.services.auth_service import create_user
 from inventory_app.config import ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF
 
@@ -31,6 +32,12 @@ class InventoryApp:
         self.current_screen = None
         
         start_scheduler()
+
+        # Ensure database tables exist for first-run scenarios
+        try:
+            init_db()
+        except Exception as e:
+            logger.error(f"Failed initializing database: {e}")
 
         # Setup Notebook (tabbed interface) - create but populate after login
         self.notebook = ttk.Notebook(self.root)

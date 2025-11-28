@@ -34,7 +34,7 @@ class ReportsWindow:
         ttk.Label(header_frame, text="Reports", font=("Helvetica", 18, "bold")).pack(side=LEFT)
         
         # Date range frame
-        date_frame = ttk.LabelFrame(self.frame, text="Date Range (for time-based reports)", padding=10)
+        date_frame = ttk.Labelframe(self.frame, text="Date Range (for time-based reports)", padding=10)
         date_frame.pack(fill=X, pady=10)
         
         ttk.Label(date_frame, text="Start Date:").grid(row=0, column=0, padx=5)
@@ -48,7 +48,7 @@ class ReportsWindow:
         self.end_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         
         # Report buttons
-        reports_frame = ttk.LabelFrame(self.frame, text="Available Reports", padding=10)
+        reports_frame = ttk.Labelframe(self.frame, text="Available Reports", padding=10)
         reports_frame.pack(fill=X, pady=10)
         
         ttk.Button(
@@ -96,7 +96,7 @@ class ReportsWindow:
         ).pack()
         
         # Results frame
-        results_frame = ttk.LabelFrame(self.frame, text="Report Results", padding=10)
+        results_frame = ttk.Labelframe(self.frame, text="Report Results", padding=10)
         results_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         # Treeview for results
