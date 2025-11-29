@@ -12,8 +12,7 @@ from inventory_app.services.scheduler_service import start_scheduler, stop_sched
 from inventory_app.utils.logging import logger
 from inventory_app.models.user import User
 from inventory_app.db.session import get_db_session
-from inventory_app.db.session import init_db
-from inventory_app.services.auth_service import create_user
+from inventory_app.startup import bootstrap
 from inventory_app.config import ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF
 
 
@@ -33,22 +32,12 @@ class InventoryApp:
         
         start_scheduler()
 
-        # Ensure database tables exist for first-run scenarios
-        try:
-            init_db()
-        except Exception as e:
-            logger.error(f"Failed initializing database: {e}")
-
         # Setup Notebook (tabbed interface) - create but populate after login
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=BOTH, expand=TRUE)
         self.screens = {}
 
-        # Ensure default admin exists, then show in-window login overlay
-        try:
-            self.ensure_default_admin()
-        except Exception as e:
-            logger.error(f"Failed ensuring default admin: {e}")
+        # Show in-window login overlay after bootstrap
         self.show_login_overlay()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
@@ -121,30 +110,7 @@ class InventoryApp:
         else:
             self.show_dashboard()
 
-    def ensure_default_admin(self):
-        """Ensure a default admin exists (admin/admin123)."""
-        db = None
-        try:
-            db = get_db_session()
-            admin = db.query(User).filter(User.username == "admin").first()
-            if not admin:
-                create_user(
-                    db,
-                    username="admin",
-                    password="admin123",
-                    email="admin@inventory.local",
-                    full_name="Administrator",
-                    role="Admin"
-                )
-                logger.info("Default admin user created")
-            else:
-                logger.info("Default admin user ensured")
-        finally:
-            if db:
-                try:
-                    db.close()
-                except Exception:
-                    pass
+    # Admin bootstrap moved to startup module
 
     def handle_login(self):
         """Authenticate from overlay and proceed."""
@@ -211,8 +177,15 @@ class InventoryApp:
                 ("orders", "Orders", OrdersWindow),
                 ("reports", "Reports", ReportsWindow)
             ]
+        elif role == ROLE_STAFF:
+            # Staff get a limited set of tabs
+            tab_defs = [
+                ("dashboard", "Dashboard", DashboardWindow),
+                ("products", "Products", ProductsWindow),
+                ("orders", "Orders", OrdersWindow)
+            ]
         else:
-            # Staff and unknown roles get a limited set of tabs
+            # Unknown roles fallback to minimal tabs
             tab_defs = [
                 ("dashboard", "Dashboard", DashboardWindow),
                 ("products", "Products", ProductsWindow),
@@ -254,6 +227,8 @@ class InventoryApp:
 def main():
     """Main entry point."""
     try:
+        # Composition root bootstrap: init DB, ensure admin
+        bootstrap()
         app = InventoryApp()
         app.run()
     except Exception as e:
