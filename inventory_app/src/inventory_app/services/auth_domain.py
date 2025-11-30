@@ -17,13 +17,26 @@ from inventory_app.utils.logging import logger
 
 class PasswordHasher:
     def __init__(self, schemes: list[str] | None = None, deprecated: str = "auto") -> None:
-        self._ctx = CryptContext(schemes=schemes or ["bcrypt"], deprecated=deprecated)
+        # Support both pbkdf2_sha256 and bcrypt to validate existing hashes
+        # New hashes will use the first scheme in the list
+        default_schemes = ["pbkdf2_sha256", "bcrypt"]
+        self._ctx = CryptContext(schemes=schemes or default_schemes, deprecated=deprecated)
 
     def hash(self, password: str) -> str:
         return self._ctx.hash(password)
 
     def verify(self, plain_password: str, hashed_password: str) -> bool:
-        return self._ctx.verify(plain_password, hashed_password)
+        try:
+            return self._ctx.verify(plain_password, hashed_password)
+        except Exception:
+            # Fallback: attempt direct bcrypt verify if context couldn't identify
+            try:
+                from passlib.hash import bcrypt
+                if bcrypt.identify(hashed_password):
+                    return bcrypt.verify(plain_password, hashed_password)
+            except Exception:
+                pass
+            raise
 
 
 class PermissionChecker:

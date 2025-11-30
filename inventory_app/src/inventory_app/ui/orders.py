@@ -161,7 +161,7 @@ class OrderDialog:
         main_frame.pack(fill=BOTH, expand=TRUE)
 
         # Party selection (Supplier for Purchase, Customer for Sale)
-        party_frame = ttk.LabelFrame(main_frame, text="Party", padding=10)
+        party_frame = ttk.Labelframe(main_frame, text="Party", padding=10)
         party_frame.pack(fill=X, pady=10)
 
         self.supplier_var = None
@@ -183,7 +183,7 @@ class OrderDialog:
         # (Removed duplicate party block - first party_frame above handles supplier/customer)
         
         # Add item frame
-        add_frame = ttk.LabelFrame(main_frame, text="Add Item", padding=10)
+        add_frame = ttk.Labelframe(main_frame, text="Add Item", padding=10)
         add_frame.pack(fill=X, pady=10)
         
         # Product search
@@ -224,7 +224,7 @@ class OrderDialog:
         ).grid(row=1, column=4, padx=5, pady=5)
         
         # Items table
-        items_frame = ttk.LabelFrame(main_frame, text="Order Items", padding=10)
+        items_frame = ttk.Labelframe(main_frame, text="Order Items", padding=10)
         items_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         item_columns = ("Product", "Warehouse", "Quantity", "Unit Price", "Subtotal")
