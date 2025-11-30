@@ -12,9 +12,9 @@ from inventory_app.config import BACKUPS_DIR, DB_PATH
 from inventory_app.utils.logging import logger
 from inventory_app.services.scheduler_domain import LowStockChecker, DatabaseBackups
 
+
+
 scheduler = BackgroundScheduler()
-
-
 def check_low_stock():
     """Check for low stock items and log them (delegates)."""
     db = next(get_db_session())
