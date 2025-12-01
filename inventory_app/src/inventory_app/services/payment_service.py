@@ -9,7 +9,6 @@ from inventory_app.services.payment_domain import (
 )
 from inventory_app.models.payment import Payment, PaymentMethod
 from inventory_app.utils.logging import logger
-
 def _select_gateway(method_type: str) -> PaymentGateway:
     method_type = (method_type or "").lower()
     if method_type in {"card", "stripe"}:
@@ -26,5 +25,32 @@ def _select_gateway(method_type: str) -> PaymentGateway:
             return PayPalGateway(client_id, secret, sandbox=sandbox)
         logger.warning("PayPal credentials not set; using MockGateway for PayPal")
         return MockGateway()
-    # Cash/BankTransfer or unknown: mock gateway (immediate capture)
     return MockGateway()
+def process_payment(
+    db: Session,
+    amount: float,
+    currency: str,
+    method_type: str,
+    method_details: dict,
+    description: Optional[str] = None,
+) -> Payment:
+    """Process a payment using the specified method."""
+    repo = PaymentRepository(db)
+    payment = Payment(
+        amount=amount,
+        currency=currency,
+        method_type=method_type,
+        description=description,
+        status="Pending",
+    )
+    repo.add_payment(payment)
+    repo.commit()
+    repo.refresh(payment)
+
+    gateway = _select_gateway(method_type)
+    processor = PaymentProcessor(gateway=gateway)
+
+    result = processor.process_payment(
+        payment=payment,
+        method_details=method_details,
+    )
