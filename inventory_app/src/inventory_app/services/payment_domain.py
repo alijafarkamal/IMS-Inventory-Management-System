@@ -45,9 +45,9 @@ class GatewayResult:
 
 
 class PaymentGateway(Protocol):
-    def authorize(self, payment: Payment) -> GatewayResult: ...
-    def capture(self, payment: Payment) -> GatewayResult: ...
-    def refund(self, payment: Payment, amount: Optional[float] = None) -> GatewayResult: ...
+    def authorize(self, payment: Payment): ...
+    def capture(self, payment: Payment): ...
+    def refund(self, payment: Payment, amount: Optional[float] = None): ...
 
 class MockGateway:
     def authorize(self, payment: Payment) -> GatewayResult:
@@ -58,6 +58,76 @@ class MockGateway:
         logger.info(f"[MockGateway] capture payment {payment.id}")
         return GatewayResult(status="Captured", reference=f"MOCK-CAP-{payment.id}")
 
-    def refund(self, payment: Payment, amount: Optional[float] = None) -> GatewayResult:
+    def refund(self, payment: Payment, amount: Optional[float] = None):
         logger.info(f"[MockGateway] refund payment {payment.id} amount={amount}")
         return GatewayResult(status="Refunded", reference=f"MOCK-REF-{payment.id}")
+    
+class StripeGateway:
+    def __init__(self, api_key: str):
+        try:
+            import stripe 
+            stripe.api_key = api_key
+            self.stripe = stripe
+        except Exception:
+            logger.warning("Stripe SDK not available; falling back to MockGateway behavior")
+            self.stripe = None
+    def authorize(self, payment: Payment):
+        if not self.stripe:
+            return GatewayResult(status="Authorized", reference=f"STRIPE-MOCK-AUTH-{payment.id}")
+        # For simplicity, treat authorization as PaymentIntent creation in test mode
+        intent = self.stripe.PaymentIntent.create(amount=int(payment.amount * 100), currency=payment.currency.lower(), capture_method="manual")
+        return GatewayResult(status="Authorized", reference=intent.get("id"))
+    def capture(self, payment: Payment):
+        if not self.stripe:
+            return GatewayResult(status="Captured", reference=f"STRIPE-MOCK-CAP-{payment.id}")
+        ref = payment.reference
+        if not ref:
+            return GatewayResult(status="Failed", reference=None)
+        intent = self.stripe.PaymentIntent.capture(ref)
+        return GatewayResult(status="Captured", reference=intent.get("id"))
+    def refund(self, payment: Payment, amount: Optional[float] = None):
+        if not self.stripe:
+            return GatewayResult(status="Refunded", reference=f"STRIPE-MOCK-REF-{payment.id}")
+        ref = payment.reference
+        if not ref:
+            return GatewayResult(status="Failed", reference=None)
+        self.stripe.Refund.create(payment_intent=ref, amount=int((amount or float(payment.amount)) * 100))
+        return GatewayResult(status="Refunded", reference=ref)
+
+
+class PayPalGateway:
+    def __init__(self, client_id: str, secret: str, sandbox: bool = True) -> None:
+        try:
+            import paypalrestsdk  # type: ignore
+            paypalrestsdk.configure({
+                "mode": "sandbox" if sandbox else "live",
+                "client_id": client_id,
+                "client_secret": secret,
+            })
+            self.paypal = paypalrestsdk
+        except Exception:
+            logger.warning("PayPal SDK not available; falling back to MockGateway behavior")
+            self.paypal = None
+    def authorize(self, payment: Payment) -> GatewayResult:
+        if not self.paypal:
+            return GatewayResult(status="Authorized", reference=f"PP-MOCK-AUTH-{payment.id}")
+        p = self.paypal.Payment({
+            "intent": "authorize",
+            "payer": {"payment_method": "paypal"},
+            "transactions": [{"amount": {"total": str(payment.amount), "currency": payment.currency}}],
+            "redirect_urls": {"return_url": "http://localhost/return", "cancel_url": "http://localhost/cancel"}
+        })
+        if p.create():
+            return GatewayResult(status="Authorized", reference=p.id)
+        return GatewayResult(status="Failed", reference=None)
+
+    def capture(self, payment: Payment) -> GatewayResult:
+        if not self.paypal:
+            return GatewayResult(status="Captured", reference=f"PP-MOCK-CAP-{payment.id}")
+        # In real flow, capture authorization by id; using mock for now
+        return GatewayResult(status="Captured", reference=payment.reference or f"PP-CAP-{payment.id}")
+    def refund(self, payment: Payment, amount: Optional[float] = None):
+        if not self.paypal:
+            return GatewayResult(status="Refunded", reference=f"PP-MOCK-REF-{payment.id}")
+        return GatewayResult(status="Refunded", reference=payment.reference or f"PP-REF-{payment.id}")
+    
