@@ -21,12 +21,12 @@ class PaymentRepository:
     def get_payment(self, payment_id: int) -> Optional[Payment]:
         return self.db.query(Payment).filter(Payment.id == payment_id).first()
 
-    def add_method(self, method: PaymentMethod) -> PaymentMethod:
+    def add_method(self, method: PaymentMethod):
         self.db.add(method)
         self.db.flush()
         return method
 
-    def add_payment(self, payment: Payment) -> Payment:
+    def add_payment(self, payment: Payment):
         self.db.add(payment)
         self.db.flush()
         return payment
@@ -54,7 +54,7 @@ class MockGateway:
         logger.info(f"[MockGateway] authorize payment {payment.id}")
         return GatewayResult(status="Authorized", reference=f"MOCK-AUTH-{payment.id}")
 
-    def capture(self, payment: Payment) -> GatewayResult:
+    def capture(self, payment: Payment):
         logger.info(f"[MockGateway] capture payment {payment.id}")
         return GatewayResult(status="Captured", reference=f"MOCK-CAP-{payment.id}")
 
@@ -98,7 +98,7 @@ class StripeGateway:
 class PayPalGateway:
     def __init__(self, client_id: str, secret: str, sandbox: bool = True) -> None:
         try:
-            import paypalrestsdk  # type: ignore
+            import paypalrestsdk  
             paypalrestsdk.configure({
                 "mode": "sandbox" if sandbox else "live",
                 "client_id": client_id,
@@ -108,7 +108,7 @@ class PayPalGateway:
         except Exception:
             logger.warning("PayPal SDK not available; falling back to MockGateway behavior")
             self.paypal = None
-    def authorize(self, payment: Payment) -> GatewayResult:
+    def authorize(self, payment: Payment):
         if not self.paypal:
             return GatewayResult(status="Authorized", reference=f"PP-MOCK-AUTH-{payment.id}")
         p = self.paypal.Payment({
@@ -121,13 +121,44 @@ class PayPalGateway:
             return GatewayResult(status="Authorized", reference=p.id)
         return GatewayResult(status="Failed", reference=None)
 
-    def capture(self, payment: Payment) -> GatewayResult:
+    def capture(self, payment: Payment):
         if not self.paypal:
             return GatewayResult(status="Captured", reference=f"PP-MOCK-CAP-{payment.id}")
-        # In real flow, capture authorization by id; using mock for now
         return GatewayResult(status="Captured", reference=payment.reference or f"PP-CAP-{payment.id}")
     def refund(self, payment: Payment, amount: Optional[float] = None):
         if not self.paypal:
             return GatewayResult(status="Refunded", reference=f"PP-MOCK-REF-{payment.id}")
         return GatewayResult(status="Refunded", reference=payment.reference or f"PP-REF-{payment.id}")
+class PaymentProcessor:
+    def __init__(self, gateway: PaymentGateway, repo: PaymentRepository) -> None:
+        self.gateway = gateway
+        self.repo = repo
+
+    def process_authorize_capture(self, payment_id: int):
+        payment = self.repo.get_payment(payment_id)
+        if not payment:
+            raise ValueError(f"Payment {payment_id} not found")
+    
+        auth = self.gateway.authorize(payment)
+        payment.status = auth.status
+        payment.reference = auth.reference
+        self.repo.commit()
+        self.repo.refresh(payment)
+        if payment.status == "Authorized":
+            cap = self.gateway.capture(payment)
+            payment.status = cap.status
+            payment.reference = cap.reference or payment.reference
+            self.repo.commit()
+            self.repo.refresh(payment)
+        return payment
+    def refund(self, payment_id: int, amount: Optional[float] = None):
+        payment = self.repo.get_payment(payment_id)
+        if not payment:
+            raise ValueError(f"Payment {payment_id} not found")
+        res = self.gateway.refund(payment, amount=amount)
+        payment.status = res.status
+        self.repo.commit()
+        self.repo.refresh(payment)
+        return payment
+
     
