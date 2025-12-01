@@ -53,7 +53,7 @@ class PaymentService:
     def authorize_and_capture(self, payment_id: int, method_type: str):
         gateway = _select_gateway(method_type)
         processor = PaymentProcessor(gateway=gateway, repo=self.repo)
-        processor.process_authorize_capture(payment_id)
+        return processor.process_authorize_capture(payment_id)
 
     def refund(self, payment_id: int, method_type: str, amount: Optional[float] = None):
         gateway = _select_gateway(method_type)
