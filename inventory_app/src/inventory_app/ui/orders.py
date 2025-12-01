@@ -6,6 +6,7 @@ from decimal import Decimal
 from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
+from inventory_app.services.payment_service import PaymentService
 from inventory_app.services.product_service import search_products, get_all_suppliers
 from inventory_app.services.customer_service import get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
@@ -259,6 +260,17 @@ class OrderDialog:
         ttk.Label(bottom_frame, text="Notes:").pack(side=LEFT, padx=10)
         self.notes_entry = ttk.Entry(bottom_frame, width=40)
         self.notes_entry.pack(side=LEFT, padx=5, fill=X, expand=TRUE)
+
+        # Payment section for Sales orders
+        self.payment_method_var = None
+        if order_type == ORDER_TYPE_SALE:
+            pay_frame = ttk.Labelframe(main_frame, text="Payment", padding=10)
+            pay_frame.pack(fill=X, pady=10)
+            ttk.Label(pay_frame, text="Method:").grid(row=0, column=0, sticky=W, padx=5)
+            self.payment_method_var = ttk.StringVar(value="Card")
+            self.payment_method_combo = ttk.Combobox(pay_frame, textvariable=self.payment_method_var, width=20, state="readonly")
+            self.payment_method_combo.grid(row=0, column=1, padx=5)
+            self.payment_method_combo["values"] = ["Card", "PayPal", "Cash", "Bank"]
         
         # Buttons
         btn_frame = ttk.Frame(main_frame)
@@ -474,6 +486,7 @@ class OrderDialog:
     def update_total(self):
         """Update total label."""
         total = sum(item["unit_price"] * item["quantity"] for item in self.items)
+        self.total_amount = float(total)
         self.total_label.config(text=f"Total: ${total:.2f}")
     
     def create_order(self):
@@ -508,7 +521,7 @@ class OrderDialog:
         
         db = get_db_session()
         try:
-            create_order(
+            order = create_order(
                 db,
                 self.order_type,
                 self.user,
@@ -517,6 +530,19 @@ class OrderDialog:
                 customer_id=customer_id if self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN) else None
             )
             messagebox.showinfo("Success", f"{self.order_type} order created successfully")
+
+            # If Sales order and a payment method is chosen, create and capture payment
+            try:
+                if self.order_type == ORDER_TYPE_SALE and self.payment_method_var is not None:
+                    method = self.payment_method_var.get().strip()
+                    if method:
+                        pay_service = PaymentService(db)
+                        payment = pay_service.create_payment(order.id, method_type=method, amount=self.total_amount, currency="USD")
+                        payment = pay_service.authorize_and_capture(payment.id, method_type=method)
+                        messagebox.showinfo("Payment", f"Payment {payment.status}. Ref: {payment.reference or 'N/A'}")
+            except Exception as pe:
+                logger.error(f"Payment processing error: {pe}")
+                messagebox.showwarning("Payment", f"Order created, but payment failed: {pe}")
             # Notify other parts of the UI (dashboard) that orders have been updated
             try:
                 root = self.window.winfo_toplevel()
