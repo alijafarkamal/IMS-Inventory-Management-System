@@ -26,31 +26,38 @@ def _select_gateway(method_type: str) -> PaymentGateway:
         logger.warning("PayPal credentials not set; using MockGateway for PayPal")
         return MockGateway()
     return MockGateway()
-def process_payment(
-    db: Session,
-    amount: float,
-    currency: str,
-    method_type: str,
-    method_details: dict,
-    description: Optional[str] = None,
-) -> Payment:
-    """Process a payment using the specified method."""
-    repo = PaymentRepository(db)
-    payment = Payment(
-        amount=amount,
-        currency=currency,
-        method_type=method_type,
-        description=description,
-        status="Pending",
-    )
-    repo.add_payment(payment)
-    repo.commit()
-    repo.refresh(payment)
+class PaymentService:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+        self.repo = PaymentRepository(db)
 
-    gateway = _select_gateway(method_type)
-    processor = PaymentProcessor(gateway=gateway)
+    def ensure_method(self, method_type: str, display_name: Optional[str] = None):
+        mt = method_type.strip().upper()
+        method = self.db.query(PaymentMethod).filter(PaymentMethod.method_type == mt).first()
+        if method:
+            return method
+        method = PaymentMethod(method_type=mt, display_name=display_name or mt.title())
+        self.repo.add_method(method)
+        self.repo.commit()
+        self.repo.refresh(method)
+        return method
 
-    result = processor.process_payment(
-        payment=payment,
-        method_details=method_details,
-    )
+    def create_payment(self, order_id: int, method_type: str, amount: float, currency: str = "USD"):
+        method = self.ensure_method(method_type)
+        payment = Payment(order_id=order_id, method_id=method.id, amount=amount, currency=currency, status="Initiated")
+        self.repo.add_payment(payment)
+        self.repo.commit()
+        self.repo.refresh(payment)
+        return payment
+
+    def authorize_and_capture(self, payment_id: int, method_type: str):
+        gateway = _select_gateway(method_type)
+        processor = PaymentProcessor(gateway=gateway, repo=self.repo)
+        processor.process_authorize_capture(payment_id)
+
+    def refund(self, payment_id: int, method_type: str, amount: Optional[float] = None):
+        gateway = _select_gateway(method_type)
+        processor = PaymentProcessor(gateway=gateway, repo=self.repo)
+        return processor.refund(payment_id, amount=amount)
+
+
