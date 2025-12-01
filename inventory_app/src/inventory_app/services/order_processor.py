@@ -1,4 +1,5 @@
-"""Order processing orchestrator for SRP/DI.
+"""
+Order processing orchestrator for SRP/DI.
 
 Encapsulates order creation, FEFO batch consumption, stock adjustments,
 commit/rollback, and logging. Public service delegates to this class.
@@ -48,6 +49,7 @@ class OrderProcessor:
         total_amount = Decimal("0.00")
         order_items: List[OrderItem] = []
 
+        # Prepare items
         for item_data in items:
             quantity = int(item_data["quantity"])
             unit_price = Decimal(str(item_data["unit_price"]))
@@ -64,6 +66,7 @@ class OrderProcessor:
                 )
             )
 
+        # Create order
         order = Order(
             order_number=order_number,
             order_type=order_type,
@@ -73,23 +76,25 @@ class OrderProcessor:
             status="Pending",
             notes=notes,
             order_date=datetime.utcnow(),
-            **({"customer_id": customer_id} if customer_id is not None else {}),
         )
 
         try:
             db.add(order)
             db.flush()
 
+            # Insert items
             for oi in order_items:
                 oi.order_id = order.id
                 db.add(oi)
             db.flush()
 
+            # Stock Adjustments
             for item_data, _oi in zip(items, order_items):
                 quantity = int(item_data["quantity"])
                 warehouse_id = item_data["warehouse_id"]
                 product_id = item_data["product_id"]
 
+                # SALE: FEFO strategy
                 if order_type == ORDER_TYPE_SALE:
                     remaining = quantity
                     reason = f"Sale order {order_number}"
@@ -111,6 +116,7 @@ class OrderProcessor:
                         take = min(batch.quantity, remaining)
                         if take <= 0:
                             continue
+
                         self.adjust_stock(
                             db=db,
                             product_id=product_id,
@@ -122,6 +128,7 @@ class OrderProcessor:
                         )
                         remaining -= take
 
+                    # If still remaining after consuming all batches
                     if remaining > 0:
                         self.adjust_stock(
                             db=db,
@@ -132,6 +139,7 @@ class OrderProcessor:
                             reason=reason,
                         )
 
+                # PURCHASE: add to stock
                 elif order_type == ORDER_TYPE_PURCHASE:
                     reason = f"Purchase order {order_number}"
                     self.adjust_stock(
@@ -143,6 +151,7 @@ class OrderProcessor:
                         reason=reason,
                     )
 
+                # RETURN: add stock back
                 elif order_type == ORDER_TYPE_RETURN:
                     reason = f"Return order {order_number}"
                     self.adjust_stock(
@@ -153,17 +162,26 @@ class OrderProcessor:
                         user=user,
                         reason=reason,
                     )
-                else:
-                    logger.warning("Unknown order type for stock adjustment: %s", order_type)
 
+                else:
+                    logger.warning(
+                        "Unknown order type for stock adjustment: %s",
+                        order_type,
+                    )
+
+            # Finalize order
             order.status = "Completed"
             db.commit()
             db.refresh(order)
-            logger.info("Created %s order: %s by %s", order_type, order_number, user.username)
 
-            if activity_logger is not None:
+            logger.info(
+                "Created %s order: %s by %s",
+                order_type, order_number, user.username
+            )
+
+            # Activity logging
+            if activity_logger:
                 try:
-                    # Keyword args aid clarity; conforms to ActivityLoggerFn signature
                     activity_logger(
                         db,
                         user,
@@ -173,10 +191,11 @@ class OrderProcessor:
                         f"{order_type} {order_number}",
                     )
                 except Exception:
-                    # Do not fail order creation if activity logging fails
-                    pass
+                    pass  # Fail-safe logging
+
             return order
+
         except Exception:
             db.rollback()
             logger.exception("Failed to create order")
-            raise
+            raise  # NOTE: no unreachable code after this
