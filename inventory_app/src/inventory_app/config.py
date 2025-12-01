@@ -41,3 +41,15 @@ ORDER_TYPE_SALE = "Sale"
 ORDER_TYPE_PURCHASE = "Purchase"
 ORDER_TYPE_RETURN = "Return"
 
+# Payment gateway configuration (read from environment; optional .env support)
+try:
+	from dotenv import load_dotenv  # type: ignore
+	load_dotenv()
+except Exception:
+	pass
+
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")
+PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
+PAYPAL_SECRET = os.getenv("PAYPAL_SECRET", "")
+PAYPAL_SANDBOX = os.getenv("PAYPAL_SANDBOX", "true").lower() != "false"
+
