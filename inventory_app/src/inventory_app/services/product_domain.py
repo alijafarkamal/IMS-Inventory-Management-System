@@ -173,3 +173,13 @@ class ProductManager:
         product.is_active = True
         self.products.commit()
         return True
+
+    def search(
+        self,
+        *,
+        query: str | None,
+        category_id: int | None,
+        active_only: bool = True,
+    ) -> List[Product]:
+        """Search products via repository for symmetry with UML operations."""
+        return self.products.search(query=query, category_id=category_id, active_only=active_only)

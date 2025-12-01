@@ -128,8 +128,14 @@ def search_products(
     active_only: bool = True
 ) -> list[Product]:
     """Search products by name, SKU, or category."""
-    # Delegate search to repository for consistency
-    return ProductRepository(db).search(query=query, category_id=category_id, active_only=active_only)
+    # Delegate to domain manager for symmetry with UML and SRP
+    manager = ProductManager(
+        products=ProductRepository(db),
+        categories=CategoryRepository(db),
+        suppliers=SupplierRepository(db),
+        sku_gen=SkuGenerator(),
+    )
+    return manager.search(query=query, category_id=category_id, active_only=active_only)
 
 
 def get_product(db: Session, product_id: int) -> Product:
