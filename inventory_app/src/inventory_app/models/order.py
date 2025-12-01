@@ -23,6 +23,7 @@ class Order(Base, TimestampMixin):
     user = relationship("User")
     customer = relationship("Customer", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="order")
 
 
 class OrderItem(Base, TimestampMixin):

@@ -39,7 +39,7 @@ def init_db():
     """
     # Import models to ensure tables are registered on Base.metadata
     try:
-        from inventory_app.models import user, product, order, customer, stock, audit  # noqa: F401
+        from inventory_app.models import user, product, order, customer, stock, audit, payment  # noqa: F401
     except Exception:
         # Even if some optional models fail to import, proceed to create known ones
         pass
