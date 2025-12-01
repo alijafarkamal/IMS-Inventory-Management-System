@@ -165,3 +165,11 @@ class ProductManager:
         product.is_active = False
         self.products.commit()
         return True
+
+    def activate_product(self, *, product_id: int) -> bool:
+        product = self.products.get_by_id(product_id)
+        if not product:
+            raise ValueError(f"Product with ID {product_id} not found")
+        product.is_active = True
+        self.products.commit()
+        return True
