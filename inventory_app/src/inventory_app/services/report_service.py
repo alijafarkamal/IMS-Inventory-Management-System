@@ -17,7 +17,6 @@ from inventory_app.services.report_domain import ReportRepository, ExcelExporter
 
 
 def stock_availability_report(db: Session) -> pd.DataFrame:
-    """Generate stock availability report (delegates to ReportRepository)."""
     return ReportRepository().stock_availability(db)
 
 
