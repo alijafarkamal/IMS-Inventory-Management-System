@@ -162,9 +162,10 @@ class OrderDialog:
         self._orig_geometry = None
 
         # Toolbar with window controls (Minimize / Maximize / Restore)
+        self._parent_ref = parent
         toolbar = ttk.Frame(self.window, padding=4)
         toolbar.pack(fill=X, side=TOP)
-        ttk.Button(toolbar, text="_", width=3, command=self.window.iconify, bootstyle=SECONDARY).pack(side=RIGHT, padx=2)
+        ttk.Button(toolbar, text="_", width=3, command=self._minimize_window, bootstyle=SECONDARY).pack(side=RIGHT, padx=2)
         ttk.Button(toolbar, text="☐", width=3, command=self._maximize_window, bootstyle=INFO).pack(side=RIGHT, padx=2)
         ttk.Button(toolbar, text="↺", width=3, command=self._restore_window, bootstyle=PRIMARY).pack(side=RIGHT, padx=2)
 
@@ -323,11 +324,36 @@ class OrderDialog:
 
     def _restore_window(self):
         try:
+            # If window was withdrawn or iconified, deiconify first
+            try:
+                self.window.deiconify()
+            except Exception:
+                pass
             self.window.state('normal')
             if self._orig_geometry:
                 self.window.geometry(self._orig_geometry)
+            # Re-attach transient behavior if needed
+            try:
+                self.window.transient(self._parent_ref)
+            except Exception:
+                pass
         except Exception:
             pass
+
+    def _minimize_window(self):
+        """Safely minimize even if transient; fallback withdraw."""
+        try:
+            # Detach transient to allow iconify on some platforms
+            try:
+                self.window.transient(None)
+            except Exception:
+                pass
+            self.window.iconify()
+        except Exception:
+            try:
+                self.window.withdraw()
+            except Exception:
+                pass
 
     def load_suppliers(self):
         db = get_db_session()
