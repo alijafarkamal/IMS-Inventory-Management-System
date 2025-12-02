@@ -266,11 +266,17 @@ class OrderDialog:
         # Payment section for Sales orders
         self.payment_method_var = None
         if order_type == ORDER_TYPE_SALE:
-                pay_frame = ttk.Labelframe(main_frame, text="Payment", padding=6)
-                pay_frame.pack(fill=X, pady=6)
+            # Payment method section (indentation fixed)
+            pay_frame = ttk.Labelframe(main_frame, text="Payment", padding=6)
+            pay_frame.pack(fill=X, pady=6)
             ttk.Label(pay_frame, text="Method:").grid(row=0, column=0, sticky=W, padx=5)
             self.payment_method_var = ttk.StringVar(value="Card")
-            self.payment_method_combo = ttk.Combobox(pay_frame, textvariable=self.payment_method_var, width=20, state="readonly")
+            self.payment_method_combo = ttk.Combobox(
+                pay_frame,
+                textvariable=self.payment_method_var,
+                width=20,
+                state="readonly"
+            )
             self.payment_method_combo.grid(row=0, column=1, padx=5)
             self.payment_method_combo["values"] = ["Card", "PayPal", "Cash", "Bank"]
         
