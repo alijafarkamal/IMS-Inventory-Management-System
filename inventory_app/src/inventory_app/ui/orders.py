@@ -7,6 +7,7 @@ from datetime import datetime
 from inventory_app.db.session import get_db_session
 from inventory_app.services.order_service import create_order, get_orders
 from inventory_app.services.payment_service import PaymentService
+from inventory_app.models.payment import Payment
 from inventory_app.services.product_service import search_products, get_all_suppliers
 from inventory_app.services.customer_service import get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
@@ -64,6 +65,15 @@ class OrdersWindow:
             command=self.refresh_orders,
             bootstyle=SECONDARY
         ).pack(side=LEFT, padx=5)
+
+        self.refund_btn = ttk.Button(
+            btn_frame,
+            text="Refund Payment",
+            command=self.refund_selected_payment,
+            bootstyle=DANGER
+        )
+        self.refund_btn.pack(side=LEFT, padx=5)
+        self.refund_btn.configure(state=DISABLED)
         
         # Orders table
         columns = ("Date", "Order #", "Type", "Party", "User", "Total", "Status")
@@ -78,6 +88,9 @@ class OrdersWindow:
         
         self.tree.pack(side=LEFT, fill=BOTH, expand=TRUE)
         scrollbar.pack(side=RIGHT, fill=Y)
+
+        # Bind selection to enable/disable refund button
+        self.tree.bind("<<TreeviewSelect>>", self._update_refund_button_state)
         
         self.refresh_orders()
     
@@ -119,6 +132,8 @@ class OrdersWindow:
                             order.status
                         )
                     )
+            # After refresh, reset refund button state
+            self.refund_btn.configure(state=DISABLED)
         finally:
             db.close()
     
@@ -129,6 +144,62 @@ class OrdersWindow:
     def destroy(self):
         """Clean up."""
         self.frame.destroy()
+
+    def _update_refund_button_state(self, event=None):
+        selection = self.tree.selection()
+        if not selection:
+            self.refund_btn.configure(state=DISABLED)
+            return
+        item_id = selection[0]
+        values = self.tree.item(item_id, 'values')
+        if not values or len(values) < 7:
+            self.refund_btn.configure(state=DISABLED)
+            return
+        order_type = values[2]
+        order_status = values[6]
+        # Enable refund only for Sale orders that are 'Completed' or 'Captured' (status semantics may vary)
+        if order_type == ORDER_TYPE_SALE and order_status.lower() in {"completed", "captured", "authorized"}:
+            self.refund_btn.configure(state=NORMAL)
+        else:
+            self.refund_btn.configure(state=DISABLED)
+
+    def refund_selected_payment(self):
+        selection = self.tree.selection()
+        if not selection:
+            return
+        item_id = selection[0]
+        values = self.tree.item(item_id, 'values')
+        if not values or len(values) < 2:
+            return
+        order_number = values[1]
+        confirm = messagebox.askyesno("Refund", f"Refund payment for order {order_number}? This cannot be undone.")
+        if not confirm:
+            return
+        db = get_db_session()
+        try:
+            from inventory_app.models.order import Order  # local import to avoid circulars at top
+            order = db.query(Order).filter(Order.order_number == order_number).first()
+            if not order:
+                messagebox.showerror("Refund", "Order not found")
+                return
+            # Get latest captured payment
+            payment = db.query(Payment).filter(Payment.order_id == order.id).order_by(Payment.id.desc()).first()
+            if not payment:
+                messagebox.showerror("Refund", "No payment found for this order")
+                return
+            if payment.status.lower() not in {"captured", "authorized"}:
+                messagebox.showerror("Refund", f"Cannot refund payment with status: {payment.status}")
+                return
+            method_type = (payment.method.method_type if payment.method else "").lower()
+            pay_service = PaymentService(db)
+            refunded = pay_service.refund(payment.id, method_type=method_type)
+            messagebox.showinfo("Refund", f"Refund {refunded.status}. Ref: {refunded.reference or 'N/A'}")
+        except Exception as e:
+            logger.error(f"Refund error: {e}")
+            messagebox.showerror("Refund", f"Refund failed: {e}")
+        finally:
+            db.close()
+        self.refresh_orders()
 
 
 class OrderDialog:
