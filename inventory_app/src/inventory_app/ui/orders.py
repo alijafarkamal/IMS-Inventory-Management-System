@@ -507,7 +507,8 @@ class OrderDialog:
     
     def update_stock_display(self, event=None):
         """Update stock availability display for sales orders."""
-        if self.order_type == ORDER_TYPE_SALE:
+        # Only show stock availability for sales orders
+        if self.order_type != ORDER_TYPE_SALE:
             return
         
         product_name = self.product_var.get().strip()
