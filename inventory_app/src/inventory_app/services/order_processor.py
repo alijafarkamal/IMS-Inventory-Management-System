@@ -20,6 +20,8 @@ from inventory_app.config import (
     ORDER_TYPE_SALE,
     ORDER_TYPE_PURCHASE,
     ORDER_TYPE_RETURN,
+    ORDER_TYPE_CUSTOMER_RETURN,
+    ORDER_TYPE_SUPPLIER_RETURN,
 )
 from inventory_app.utils.logging import logger
 
@@ -151,14 +153,26 @@ class OrderProcessor:
                         reason=reason,
                     )
 
-                # RETURN: add stock back
-                elif order_type == ORDER_TYPE_RETURN:
+                # RETURN: add stock back (generic Return or CustomerReturn)
+                elif order_type in (ORDER_TYPE_RETURN, ORDER_TYPE_CUSTOMER_RETURN):
                     reason = f"Return order {order_number}"
                     self.adjust_stock(
                         db=db,
                         product_id=product_id,
                         warehouse_id=warehouse_id,
                         quantity=quantity,
+                        user=user,
+                        reason=reason,
+                    )
+
+                # SUPPLIER RETURN: send back to supplier (subtract stock)
+                elif order_type == ORDER_TYPE_SUPPLIER_RETURN:
+                    reason = f"Supplier return {order_number}"
+                    self.adjust_stock(
+                        db=db,
+                        product_id=product_id,
+                        warehouse_id=warehouse_id,
+                        quantity=-quantity,
                         user=user,
                         reason=reason,
                     )

@@ -40,6 +40,8 @@ ROLE_STAFF = "Staff"
 ORDER_TYPE_SALE = "Sale"
 ORDER_TYPE_PURCHASE = "Purchase"
 ORDER_TYPE_RETURN = "Return"
+ORDER_TYPE_CUSTOMER_RETURN = "CustomerReturn"
+ORDER_TYPE_SUPPLIER_RETURN = "SupplierReturn"
 
 # Payment gateway configuration (read from environment; optional .env support)
 try:

@@ -17,6 +17,8 @@ from inventory_app.config import (
     ORDER_TYPE_SALE,
     ORDER_TYPE_PURCHASE,
     ORDER_TYPE_RETURN,
+    ORDER_TYPE_CUSTOMER_RETURN,
+    ORDER_TYPE_SUPPLIER_RETURN,
     ROLE_STAFF,
 )
 from inventory_app.services.auth_service import require_permission
@@ -27,7 +29,9 @@ def generate_order_number(order_type: str, db: Session) -> str:
     prefix = {
         ORDER_TYPE_SALE: "SO",
         ORDER_TYPE_PURCHASE: "PO",
-        ORDER_TYPE_RETURN: "RT"
+        ORDER_TYPE_RETURN: "RT",
+        ORDER_TYPE_CUSTOMER_RETURN: "CR",
+        ORDER_TYPE_SUPPLIER_RETURN: "SR",
     }.get(order_type, "ORD")
     
     # Get highest sequence
@@ -58,7 +62,7 @@ def create_order(
     """Validate and delegate to `OrderProcessor` for orchestration."""
     require_permission(user, ROLE_STAFF)
 
-    if order_type not in [ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN]:
+    if order_type not in [ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN, ORDER_TYPE_CUSTOMER_RETURN, ORDER_TYPE_SUPPLIER_RETURN]:
         raise ValueError(f"Invalid order type: {order_type}")
 
     processor = OrderProcessor(adjust_stock_fn=adjust_stock)

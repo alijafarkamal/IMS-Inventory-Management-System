@@ -12,6 +12,7 @@ from inventory_app.services.product_service import search_products, get_all_supp
 from inventory_app.services.customer_service import get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
+from inventory_app.config import ORDER_TYPE_CUSTOMER_RETURN, ORDER_TYPE_SUPPLIER_RETURN
 from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
 
@@ -57,6 +58,20 @@ class OrdersWindow:
             text="Create Return Order",
             command=lambda: self.create_order_dialog(ORDER_TYPE_RETURN),
             bootstyle=INFO
+        ).pack(side=LEFT, padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="Customer Return",
+            command=lambda: self.create_order_dialog(ORDER_TYPE_CUSTOMER_RETURN),
+            bootstyle=WARNING
+        ).pack(side=LEFT, padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="Supplier Return",
+            command=lambda: self.create_order_dialog(ORDER_TYPE_SUPPLIER_RETURN),
+            bootstyle=DANGER
         ).pack(side=LEFT, padx=5)
         
         ttk.Button(
@@ -247,13 +262,19 @@ class OrderDialog:
             self.supplier_combo = ttk.Combobox(party_frame, textvariable=self.supplier_var, width=30, state="readonly")
             self.supplier_combo.grid(row=0, column=1, padx=5)
             self.load_suppliers()
-        elif order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN):
+        elif order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN, ORDER_TYPE_CUSTOMER_RETURN):
             # Use a combobox populated with existing customers (predefined options)
             ttk.Label(party_frame, text="Customer:").grid(row=0, column=0, sticky=W, padx=5)
             self.customer_var = ttk.StringVar()
             self.customer_combo = ttk.Combobox(party_frame, textvariable=self.customer_var, width=32, state="readonly")
             self.customer_combo.grid(row=0, column=1, padx=5)
             self.load_customers()
+        elif order_type == ORDER_TYPE_SUPPLIER_RETURN:
+            ttk.Label(party_frame, text="Supplier:").grid(row=0, column=0, sticky=W, padx=5)
+            self.supplier_var = ttk.StringVar()
+            self.supplier_combo = ttk.Combobox(party_frame, textvariable=self.supplier_var, width=30, state="readonly")
+            self.supplier_combo.grid(row=0, column=1, padx=5)
+            self.load_suppliers()
 
         # (Removed duplicate party block - first party_frame above handles supplier/customer)
         
@@ -479,7 +500,7 @@ class OrderDialog:
     
     def update_stock_display(self, event=None):
         """Update stock availability display for sales orders."""
-        if self.order_type != ORDER_TYPE_SALE:
+        if self.order_type == ORDER_TYPE_SALE:
             return
         
         product_name = self.product_var.get().strip()
@@ -625,7 +646,7 @@ class OrderDialog:
                 return
             notes = (notes + " ").strip()
             notes += f"[Supplier: {supplier_name}]"
-        elif self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN):
+        elif self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN, ORDER_TYPE_CUSTOMER_RETURN):
             # Require selecting an existing customer from the predefined list
             customer_name = self.customer_var.get().strip() if hasattr(self, "customer_var") else ""
             if not customer_name:
@@ -639,6 +660,13 @@ class OrderDialog:
                 return
             notes = (notes + " ").strip()
             notes += f"[Customer: {customer_name}]"
+        elif self.order_type == ORDER_TYPE_SUPPLIER_RETURN and self.supplier_var is not None:
+            supplier_name = self.supplier_var.get().strip()
+            if not supplier_name:
+                messagebox.showerror("Error", "Please select a supplier")
+                return
+            notes = (notes + " ").strip()
+            notes += f"[Supplier: {supplier_name}]"
         
         db = get_db_session()
         try:
@@ -648,7 +676,7 @@ class OrderDialog:
                 self.user,
                 self.items,
                 notes=notes if notes else None,
-                customer_id=customer_id if self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN) else None
+                customer_id=customer_id if self.order_type in (ORDER_TYPE_SALE, ORDER_TYPE_RETURN, ORDER_TYPE_CUSTOMER_RETURN) else None
             )
             messagebox.showinfo("Success", f"{self.order_type} order created successfully")
 
