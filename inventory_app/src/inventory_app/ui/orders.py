@@ -286,22 +286,41 @@ class OrderDialog:
         # Buttons
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=X, pady=10)
-        
-        ttk.Button(
+        # High-contrast explicit styles (in case theme makes text blend)
+        local_style = ttk.Style()
+        try:
+            local_style.configure("OrderAction.TButton", font=("Helvetica", 11, "bold"), foreground="#ffffff")
+            local_style.configure("OrderCancel.TButton", font=("Helvetica", 11, "bold"))
+        except Exception:
+            pass
+
+        create_btn = ttk.Button(
             btn_frame,
             text="Create Order",
             command=self.create_order,
-            bootstyle=SUCCESS,
-            width=16
-        ).pack(side=LEFT, padx=5)
-        
-        ttk.Button(
+            style="OrderAction.TButton",
+            bootstyle="success",
+            width=18,
+            takefocus=TRUE
+        )
+        create_btn.pack(side=LEFT, padx=5)
+
+        cancel_btn = ttk.Button(
             btn_frame,
             text="Cancel",
             command=self.window.destroy,
-            bootstyle=SECONDARY,
-            width=12
-        ).pack(side=LEFT, padx=5)
+            style="OrderCancel.TButton",
+            bootstyle="secondary",
+            width=12,
+            takefocus=TRUE
+        )
+        cancel_btn.pack(side=LEFT, padx=5)
+
+        # Force redraw to ensure text is visible
+        try:
+            self.window.update_idletasks()
+        except Exception:
+            pass
         
         # Load warehouses
         self.load_warehouses()
