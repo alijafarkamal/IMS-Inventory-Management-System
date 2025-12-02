@@ -158,6 +158,16 @@ class OrderDialog:
         self.window.transient(parent)
         self.window.grab_set()
         
+        # Store original geometry for restore operations
+        self._orig_geometry = None
+
+        # Toolbar with window controls (Minimize / Maximize / Restore)
+        toolbar = ttk.Frame(self.window, padding=4)
+        toolbar.pack(fill=X, side=TOP)
+        ttk.Button(toolbar, text="_", width=3, command=self.window.iconify, bootstyle=SECONDARY).pack(side=RIGHT, padx=2)
+        ttk.Button(toolbar, text="☐", width=3, command=self._maximize_window, bootstyle=INFO).pack(side=RIGHT, padx=2)
+        ttk.Button(toolbar, text="↺", width=3, command=self._restore_window, bootstyle=PRIMARY).pack(side=RIGHT, padx=2)
+
         # Main frame
         main_frame = ttk.Frame(self.window, padding=10)
         main_frame.pack(fill=BOTH, expand=TRUE)
@@ -295,6 +305,29 @@ class OrderDialog:
         # Load warehouses
         self.load_warehouses()
         self.load_products()
+
+    def _maximize_window(self):
+        try:
+            if self._orig_geometry is None:
+                self._orig_geometry = self.window.geometry()
+            # On Windows zoomed state gives full screen
+            self.window.state('zoomed')
+        except Exception:
+            # Fallback: manually set to screen size
+            try:
+                w = self.window.winfo_screenwidth()
+                h = self.window.winfo_screenheight()
+                self.window.geometry(f"{w}x{h}+0+0")
+            except Exception:
+                pass
+
+    def _restore_window(self):
+        try:
+            self.window.state('normal')
+            if self._orig_geometry:
+                self.window.geometry(self._orig_geometry)
+        except Exception:
+            pass
 
     def load_suppliers(self):
         db = get_db_session()
