@@ -158,16 +158,7 @@ class OrderDialog:
         self.window.transient(parent)
         self.window.grab_set()
         
-        # Store original geometry for restore operations
-        self._orig_geometry = None
-
-        # Toolbar with window controls (Minimize / Maximize / Restore)
-        self._parent_ref = parent
-        toolbar = ttk.Frame(self.window, padding=4)
-        toolbar.pack(fill=X, side=TOP)
-        ttk.Button(toolbar, text="_", width=3, command=self._minimize_window, bootstyle=SECONDARY).pack(side=RIGHT, padx=2)
-        ttk.Button(toolbar, text="☐", width=3, command=self._maximize_window, bootstyle=INFO).pack(side=RIGHT, padx=2)
-        ttk.Button(toolbar, text="↺", width=3, command=self._restore_window, bootstyle=PRIMARY).pack(side=RIGHT, padx=2)
+        # Removed resize toolbar to reclaim vertical space
 
         # Main frame
         main_frame = ttk.Frame(self.window, padding=10)
@@ -237,11 +228,11 @@ class OrderDialog:
         ).grid(row=1, column=4, padx=5, pady=5)
         
         # Items table
-        items_frame = ttk.Labelframe(main_frame, text="Order Items", padding=10)
+        items_frame = ttk.Labelframe(main_frame, text="Order Items", padding=6)
         items_frame.pack(fill=BOTH, expand=TRUE, pady=10)
         
         item_columns = ("Product", "Warehouse", "Quantity", "Unit Price", "Subtotal")
-        self.items_tree = ttk.Treeview(items_frame, columns=item_columns, show="headings", height=10)
+        self.items_tree = ttk.Treeview(items_frame, columns=item_columns, show="headings", height=8)
         
         for col in item_columns:
             self.items_tree.heading(col, text=col)
@@ -263,7 +254,7 @@ class OrderDialog:
         
         # Total and notes
         bottom_frame = ttk.Frame(main_frame)
-        bottom_frame.pack(fill=X, pady=10)
+        bottom_frame.pack(fill=X, pady=6)
         
         self.total_label = ttk.Label(bottom_frame, text="Total: $0.00", font=("Helvetica", 12, "bold"))
         self.total_label.pack(side=LEFT, padx=10)
@@ -275,8 +266,8 @@ class OrderDialog:
         # Payment section for Sales orders
         self.payment_method_var = None
         if order_type == ORDER_TYPE_SALE:
-            pay_frame = ttk.Labelframe(main_frame, text="Payment", padding=10)
-            pay_frame.pack(fill=X, pady=10)
+                pay_frame = ttk.Labelframe(main_frame, text="Payment", padding=6)
+                pay_frame.pack(fill=X, pady=6)
             ttk.Label(pay_frame, text="Method:").grid(row=0, column=0, sticky=W, padx=5)
             self.payment_method_var = ttk.StringVar(value="Card")
             self.payment_method_combo = ttk.Combobox(pay_frame, textvariable=self.payment_method_var, width=20, state="readonly")
@@ -285,7 +276,7 @@ class OrderDialog:
         
         # Buttons
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill=X, pady=10)
+        btn_frame.pack(fill=X, pady=(4,2))
         # High-contrast explicit styles (in case theme makes text blend)
         local_style = ttk.Style()
         try:
@@ -321,58 +312,30 @@ class OrderDialog:
             self.window.update_idletasks()
         except Exception:
             pass
+
+        # Adjust geometry to slightly shorter height for button visibility
+        try:
+            current_geo = self.window.geometry()
+            w_h_pos = current_geo.split('+')[0]
+            if 'x' in w_h_pos:
+                w_str, h_str = w_h_pos.split('x')[:2]
+                w = int(w_str)
+                h = int(h_str)
+                new_h = max(600, int(h * 0.9))
+                # Keep centered-ish
+                screen_w = self.window.winfo_screenwidth()
+                screen_h = self.window.winfo_screenheight()
+                x = int((screen_w - w) / 2)
+                y = int((screen_h - new_h) / 2 * 0.9)
+                self.window.geometry(f"{w}x{new_h}+{x}+{y}")
+        except Exception:
+            pass
         
         # Load warehouses
         self.load_warehouses()
         self.load_products()
 
-    def _maximize_window(self):
-        try:
-            if self._orig_geometry is None:
-                self._orig_geometry = self.window.geometry()
-            # On Windows zoomed state gives full screen
-            self.window.state('zoomed')
-        except Exception:
-            # Fallback: manually set to screen size
-            try:
-                w = self.window.winfo_screenwidth()
-                h = self.window.winfo_screenheight()
-                self.window.geometry(f"{w}x{h}+0+0")
-            except Exception:
-                pass
-
-    def _restore_window(self):
-        try:
-            # If window was withdrawn or iconified, deiconify first
-            try:
-                self.window.deiconify()
-            except Exception:
-                pass
-            self.window.state('normal')
-            if self._orig_geometry:
-                self.window.geometry(self._orig_geometry)
-            # Re-attach transient behavior if needed
-            try:
-                self.window.transient(self._parent_ref)
-            except Exception:
-                pass
-        except Exception:
-            pass
-
-    def _minimize_window(self):
-        """Safely minimize even if transient; fallback withdraw."""
-        try:
-            # Detach transient to allow iconify on some platforms
-            try:
-                self.window.transient(None)
-            except Exception:
-                pass
-            self.window.iconify()
-        except Exception:
-            try:
-                self.window.withdraw()
-            except Exception:
-                pass
+    # Removed maximize/minimize/restore handlers (not needed after reclaiming space)
 
     def load_suppliers(self):
         db = get_db_session()
