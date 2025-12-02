@@ -9,18 +9,25 @@ from inventory_app.services.payment_domain import (
 )
 from inventory_app.models.payment import Payment, PaymentMethod
 from inventory_app.utils.logging import logger
+from inventory_app.config import (
+    STRIPE_API_KEY as CFG_STRIPE_API_KEY,
+    PAYPAL_CLIENT_ID as CFG_PAYPAL_CLIENT_ID,
+    PAYPAL_SECRET as CFG_PAYPAL_SECRET,
+    PAYPAL_SANDBOX as CFG_PAYPAL_SANDBOX,
+)
 def _select_gateway(method_type: str) -> PaymentGateway:
     method_type = (method_type or "").lower()
     if method_type in {"card", "stripe"}:
-        api_key = os.getenv("STRIPE_API_KEY", None)
+        # Prefer config value; fallback to env for flexibility
+        api_key = CFG_STRIPE_API_KEY or os.getenv("STRIPE_API_KEY", None)
         if api_key is not None and api_key != "":
             return StripeGateway(api_key)
         logger.warning("STRIPE_API_KEY not set; using MockGateway for Stripe")
         return MockGateway()
     if method_type in {"paypal"}:
-        client_id = os.getenv("PAYPAL_CLIENT_ID", "")
-        secret = os.getenv("PAYPAL_SECRET", "")
-        sandbox = os.getenv("PAYPAL_SANDBOX", "true").lower() != "false"
+        client_id = CFG_PAYPAL_CLIENT_ID or os.getenv("PAYPAL_CLIENT_ID", "")
+        secret = CFG_PAYPAL_SECRET or os.getenv("PAYPAL_SECRET", "")
+        sandbox = CFG_PAYPAL_SANDBOX if CFG_PAYPAL_SANDBOX is not None else (os.getenv("PAYPAL_SANDBOX", "true").lower() != "false")
         if client_id and secret:
             return PayPalGateway(client_id, secret, sandbox=sandbox)
         logger.warning("PayPal credentials not set; using MockGateway for PayPal")
