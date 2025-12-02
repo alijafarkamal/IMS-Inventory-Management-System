@@ -54,12 +54,7 @@ class OrdersWindow:
             bootstyle=PRIMARY
         ).pack(side=LEFT, padx=5)
         
-        ttk.Button(
-            btn_frame,
-            text="Create Return Order",
-            command=lambda: self.create_order_dialog(ORDER_TYPE_RETURN),
-            bootstyle=INFO
-        ).pack(side=LEFT, padx=5)
+        # Removed generic return button; use dedicated Customer/Supplier Return dialogs
 
         ttk.Button(
             btn_frame,
