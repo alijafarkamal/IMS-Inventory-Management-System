@@ -280,13 +280,16 @@ class OrderDialog:
             btn_frame,
             text="Create Order",
             command=self.create_order,
-            bootstyle=PRIMARY
+            bootstyle=SUCCESS,
+            width=16
         ).pack(side=LEFT, padx=5)
         
         ttk.Button(
             btn_frame,
             text="Cancel",
-            command=self.window.destroy
+            command=self.window.destroy,
+            bootstyle=SECONDARY,
+            width=12
         ).pack(side=LEFT, padx=5)
         
         # Load warehouses
