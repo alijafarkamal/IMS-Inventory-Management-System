@@ -8,7 +8,6 @@ from inventory_app.ui.dashboard import DashboardWindow
 from inventory_app.ui.products import ProductsWindow
 from inventory_app.ui.orders import OrdersWindow
 from inventory_app.ui.reports import ReportsWindow
-from inventory_app.ui.returns import ReturnsWindow
 from inventory_app.services.scheduler_service import start_scheduler, stop_scheduler
 from inventory_app.utils.logging import logger
 from inventory_app.models.user import User
@@ -169,7 +168,6 @@ class InventoryApp:
                 ("dashboard", "Dashboard", DashboardWindow),
                 ("products", "Products", ProductsWindow),
                 ("orders", "Orders", OrdersWindow),
-                ("returns", "Returns", ReturnsWindow),
                 ("reports", "Reports", ReportsWindow)
             ]
         elif role == ROLE_MANAGER:
@@ -177,7 +175,6 @@ class InventoryApp:
                 ("dashboard", "Dashboard", DashboardWindow),
                 ("products", "Products", ProductsWindow),
                 ("orders", "Orders", OrdersWindow),
-                ("returns", "Returns", ReturnsWindow),
                 ("reports", "Reports", ReportsWindow)
             ]
         elif role == ROLE_STAFF:
@@ -185,16 +182,14 @@ class InventoryApp:
             tab_defs = [
                 ("dashboard", "Dashboard", DashboardWindow),
                 ("products", "Products", ProductsWindow),
-                ("orders", "Orders", OrdersWindow),
-                ("returns", "Returns", ReturnsWindow)
+                ("orders", "Orders", OrdersWindow)
             ]
         else:
             # Unknown roles fallback to minimal tabs
             tab_defs = [
                 ("dashboard", "Dashboard", DashboardWindow),
                 ("products", "Products", ProductsWindow),
-                ("orders", "Orders", OrdersWindow),
-                ("returns", "Returns", ReturnsWindow)
+                ("orders", "Orders", OrdersWindow)
             ]
         for key, label, cls in tab_defs:
             frame = ttk.Frame(self.notebook)
@@ -207,7 +202,7 @@ class InventoryApp:
 
     def select_tab(self, name: str):
         """Select tab by logical name using index lookup."""
-        order = ["dashboard", "products", "orders", "returns", "reports"]
+        order = ["dashboard", "products", "orders", "reports"]
         if name not in order:
             logger.warning(f"Unknown tab: {name}")
             return

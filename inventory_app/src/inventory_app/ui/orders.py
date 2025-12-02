@@ -13,6 +13,7 @@ from inventory_app.services.customer_service import get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.config import ORDER_TYPE_CUSTOMER_RETURN, ORDER_TYPE_SUPPLIER_RETURN
+from inventory_app.ui.returns import ReturnOrderDialog
 from inventory_app.models.user import User
 from inventory_app.utils.logging import logger
 
@@ -63,14 +64,14 @@ class OrdersWindow:
         ttk.Button(
             btn_frame,
             text="Customer Return",
-            command=lambda: self.create_order_dialog(ORDER_TYPE_CUSTOMER_RETURN),
+            command=lambda: self.open_return_dialog(ORDER_TYPE_CUSTOMER_RETURN),
             bootstyle=WARNING
         ).pack(side=LEFT, padx=5)
 
         ttk.Button(
             btn_frame,
             text="Supplier Return",
-            command=lambda: self.create_order_dialog(ORDER_TYPE_SUPPLIER_RETURN),
+            command=lambda: self.open_return_dialog(ORDER_TYPE_SUPPLIER_RETURN),
             bootstyle=DANGER
         ).pack(side=LEFT, padx=5)
         
@@ -155,6 +156,17 @@ class OrdersWindow:
     def create_order_dialog(self, order_type: str):
         """Open create order dialog."""
         OrderDialog(self.frame, self.user, order_type, on_save=self.refresh_orders)
+
+    def open_return_dialog(self, order_type: str):
+        """Open dedicated return order dialog and refresh when done."""
+        ReturnOrderDialog(self.frame, self.user, order_type)
+        # After dialog closes, refresh list
+        try:
+            root = self.frame.winfo_toplevel()
+            root.event_generate("<<OrdersUpdated>>", when="tail")
+        except Exception:
+            pass
+        self.refresh_orders()
     
     def destroy(self):
         """Clean up."""
