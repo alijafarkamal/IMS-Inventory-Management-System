@@ -7,6 +7,7 @@ from inventory_app.services.inventory_service import get_low_stock_items
 from inventory_app.models.order import Order
 from inventory_app.models.product import Product
 from inventory_app.utils.logging import logger
+from inventory_app.ui.settings import SettingsWindow
 
 
 class DashboardWindow:
@@ -54,6 +55,16 @@ class DashboardWindow:
             command=self.refresh_data,
             bootstyle=SECONDARY
         ).pack(side=RIGHT, padx=10)
+
+        # Notifications / settings button
+        # Notifications: staff can send; managers/admins can view
+        self.notify_btn = ttk.Button(
+            header_frame,
+            text="Notifications",
+            command=self.open_notifications,
+            bootstyle=INFO
+        )
+        self.notify_btn.pack(side=RIGHT, padx=6)
         
         # Quick stats frame
         stats_frame = ttk.Labelframe(self.frame, text="Quick Statistics", padding=10)
@@ -195,6 +206,21 @@ class DashboardWindow:
             logger.error(f"Error refreshing dashboard: {e}")
         finally:
             db.close()
+
+    def open_notifications(self):
+        # Behavior depends on role: Staff -> open send dialog; Manager/Admin -> view notifications
+        try:
+            from inventory_app.ui.notification_ui import SendNotificationWindow, ViewNotificationsWindow
+            top = self.frame.winfo_toplevel()
+            if self.user.role == "Staff":
+                SendNotificationWindow(top, sender=self.user)
+            elif self.user.role in ("Manager", "Admin"):
+                ViewNotificationsWindow(top, user=self.user)
+            else:
+                # Fallback to settings
+                SettingsWindow(top)
+        except Exception as e:
+            logger.error(f"Failed to open notification UI: {e}")
     
     def destroy(self):
         """Clean up."""

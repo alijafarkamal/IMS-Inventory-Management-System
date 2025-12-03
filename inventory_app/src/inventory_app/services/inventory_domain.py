@@ -17,6 +17,10 @@ import json
 from sqlalchemy.orm import Session
 
 from inventory_app.models.stock import StockLevel, Batch
+from inventory_app.models.product import Product
+from inventory_app.config import LOW_STOCK_THRESHOLD
+from inventory_app.services.notification_domain import INotifier
+from inventory_app.services.notification_store import create_notification
 from inventory_app.models.audit import InventoryAudit
 from inventory_app.models.user import User
 
@@ -76,9 +80,11 @@ class AuditFactory:
 
 
 class InventoryAdjuster:
-    def __init__(self, repo: StockRepository, audit_factory: AuditFactory) -> None:
+    def __init__(self, repo: StockRepository, audit_factory: AuditFactory, notifier: Optional[INotifier] = None) -> None:
         self.repo = repo
         self.audit_factory = audit_factory
+        # Optional notifier adhering to the INotifier interface (dependency inversion)
+        self.notifier = notifier
 
     def adjust_stock(
         self,
@@ -127,4 +133,32 @@ class InventoryAdjuster:
 
         self.repo.flush()
         self.repo.refresh(stock)
+        # Notify if below global low-stock threshold (non-intrusive, only if notifier provided)
+        try:
+            threshold = LOW_STOCK_THRESHOLD
+        except Exception:
+            threshold = None
+
+        if self.notifier and threshold is not None and new_quantity < threshold:
+            # fetch product info for context if available
+            try:
+                product = self.repo.db.query(Product).filter(Product.id == product_id).first()
+            except Exception:
+                product = None
+            try:
+                self.notifier.notify_low_stock(stock=stock, product=product, threshold=threshold)
+            except Exception:
+                # Do not let notifier failures affect inventory operations
+                pass
+            # Also create an in-app notification targeted to Manager and Admin (non-email)
+            try:
+                # Build a concise message
+                title = f"Low stock: {getattr(product, 'name', f'Product {product_id}') if product else f'Product {product_id}'}"
+                message = f"Stock for product {getattr(product, 'name', product_id)} (id={product_id}) is {new_quantity} in warehouse {warehouse_id}. Threshold: {threshold}."
+                # recipients: Manager and Admin roles
+                create_notification(self.repo.db, title=title, message=message, sender=str(user.username), recipients=["Manager", "Admin"])
+            except Exception:
+                # swallow DB notification errors
+                pass
+
         return stock

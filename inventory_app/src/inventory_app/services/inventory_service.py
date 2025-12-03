@@ -14,6 +14,7 @@ from inventory_app.services.inventory_domain import (
     AuditFactory,
     InventoryAdjuster,
 )
+from inventory_app.services.notification_service import LogNotifier
 import json
 
 
@@ -30,7 +31,9 @@ def adjust_stock(
     require_permission(user, ROLE_STAFF)
 
     repo = StockRepository(db)
-    adjuster = InventoryAdjuster(repo=repo, audit_factory=AuditFactory())
+    # Use a simple LogNotifier by default; callers may replace by constructing their own adjuster
+    notifier = LogNotifier()
+    adjuster = InventoryAdjuster(repo=repo, audit_factory=AuditFactory(), notifier=notifier)
     stock = adjuster.adjust_stock(
         product_id=product_id,
         warehouse_id=warehouse_id,
