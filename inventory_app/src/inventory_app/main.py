@@ -8,6 +8,7 @@ from inventory_app.ui.dashboard import DashboardWindow
 from inventory_app.ui.products import ProductsWindow
 from inventory_app.ui.orders import OrdersWindow
 from inventory_app.ui.reports import ReportsWindow
+from inventory_app.ui.user_management import UserManagementWindow
 from inventory_app.services.scheduler_service import start_scheduler, stop_scheduler
 from inventory_app.utils.logging import logger
 from inventory_app.models.user import User
@@ -168,7 +169,8 @@ class InventoryApp:
                 ("dashboard", "Dashboard", DashboardWindow),
                 ("products", "Products", ProductsWindow),
                 ("orders", "Orders", OrdersWindow),
-                ("reports", "Reports", ReportsWindow)
+                ("reports", "Reports", ReportsWindow),
+                ("users", "Users", UserManagementWindow)
             ]
         elif role == ROLE_MANAGER:
             tab_defs = [
@@ -191,18 +193,23 @@ class InventoryApp:
                 ("products", "Products", ProductsWindow),
                 ("orders", "Orders", OrdersWindow)
             ]
+        logger.info(f"Initializing tabs for role: {role} ({len(tab_defs)} tabs)")
         for key, label, cls in tab_defs:
             frame = ttk.Frame(self.notebook)
             self.notebook.add(frame, text=label)
-            # Instantiate screen into frame
-            instance = cls(frame, self.current_user, on_navigate_callback=self.navigate)
-            self.screens[key] = instance
+            # Instantiate screen into frame, but don't abort on errors
+            try:
+                instance = cls(frame, self.current_user, on_navigate_callback=self.navigate)
+                self.screens[key] = instance
+            except Exception as e:
+                logger.error(f"Failed to init tab '{label}': {e}")
+                # Keep the tab frame; allow app to continue
         # Select dashboard by default
         self.select_tab("dashboard")
 
     def select_tab(self, name: str):
         """Select tab by logical name using index lookup."""
-        order = ["dashboard", "products", "orders", "reports"]
+        order = ["dashboard", "products", "orders", "reports", "users"]
         if name not in order:
             logger.warning(f"Unknown tab: {name}")
             return

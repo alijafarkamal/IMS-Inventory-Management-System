@@ -48,8 +48,6 @@ def bootstrap():
                     db,
                     username="manager",
                     password="manager123",
-                    email="manager@inventory.local",
-                    full_name="Manager",
                     role=ROLE_MANAGER,
                 )
                 logger.info("Default manager user created")
@@ -66,8 +64,6 @@ def bootstrap():
                     db,
                     username="staff",
                     password="staff123",
-                    email="staff@inventory.local",
-                    full_name="Staff Member",
                     role=ROLE_STAFF,
                 )
                 logger.info("Default staff user created")

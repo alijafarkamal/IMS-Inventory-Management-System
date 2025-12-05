@@ -46,25 +46,18 @@ def create_user(
     db: Session,
     username: str,
     password: str,
-    email: str,
-    full_name: str,
     role: str = ROLE_STAFF
 ) -> User:
-    """Create a new user."""
+    """Create a new user with username/password/role only."""
     if db.query(User).filter(User.username == username).first():
         raise ValueError(f"Username '{username}' already exists")
-    
-    if db.query(User).filter(User.email == email).first():
-        raise ValueError(f"Email '{email}' already exists")
-    
+
     if role not in [ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF]:
         raise ValueError(f"Invalid role: {role}")
-    
+
     user = User(
         username=username,
         password_hash=hash_password(password),
-        email=email,
-        full_name=full_name,
         role=role
     )
     db.add(user)
