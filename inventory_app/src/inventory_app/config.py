@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # Base paths
-BASE_DIR = Path(__file__).parent.parent.parent.parent.parent
+BASE_DIR = Path(__file__).parent.parent.parent.parent
 SRC_DIR = BASE_DIR / "inventory_app" / "src"
 DATA_DIR = BASE_DIR / "data"
 BACKUPS_DIR = BASE_DIR / "backups"

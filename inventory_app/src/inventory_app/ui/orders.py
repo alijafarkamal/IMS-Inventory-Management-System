@@ -9,7 +9,6 @@ from inventory_app.services.order_service import create_order, get_orders
 from inventory_app.services.payment_service import PaymentService
 from inventory_app.models.payment import Payment
 from inventory_app.services.product_service import search_products, get_all_suppliers
-from inventory_app.services.customer_service import get_all_customers
 from inventory_app.services.inventory_service import get_all_warehouses, get_warehouse_stock
 from inventory_app.config import ORDER_TYPE_SALE, ORDER_TYPE_PURCHASE, ORDER_TYPE_RETURN
 from inventory_app.config import ORDER_TYPE_CUSTOMER_RETURN, ORDER_TYPE_SUPPLIER_RETURN
